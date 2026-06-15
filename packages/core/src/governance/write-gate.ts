@@ -50,7 +50,10 @@ export async function runWriteGate(
   }
 
   if (cfg.antiOuroboros) {
-    await checkSourceTier(record, store);
+    await checkSourceTier(record, store, {
+      callerNamespace: context.callerNamespace,
+      namespaceIsolation: cfg.namespaceIsolation,
+    });
     governanceApplied.push("anti_ouroboros");
   }
 

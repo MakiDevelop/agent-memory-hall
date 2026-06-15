@@ -2,15 +2,14 @@ import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import { unlinkSync, existsSync } from "node:fs";
 import { writeMemory } from "./write.js";
-import { transferMemory } from "./transfer.js";
 import { readMemory } from "./read.js";
 import { SqliteStore } from "../store/sqlite.js";
-import { NamespaceViolationError } from "../governance/namespace.js";
+import { AntiOuroborosError } from "../governance/source-tier.js";
 
-describe("transfer source authorization", () => {
-  const dbPath = "/tmp/amh-transfer-test.db";
+describe("supersede authorization", () => {
+  const dbPath = "/tmp/amh-supersede-test.db";
 
-  it("cannot transfer memory from another namespace", async () => {
+  it("cannot supersede memory in another namespace", async () => {
     if (existsSync(dbPath)) unlinkSync(dbPath);
     const store = new SqliteStore(dbPath);
 
@@ -19,10 +18,11 @@ describe("transfer source authorization", () => {
         agent_id: "agent-a",
         namespace: "project:secret",
         memory_type: "fact",
-        content: "classified",
+        content: "old secret fact",
         source_type: "agent",
         source_ref: "",
         source_tier: "llm_derived",
+
       },
       store,
       { namespaceIsolation: true },
@@ -31,78 +31,95 @@ describe("transfer source authorization", () => {
 
     await assert.rejects(
       () =>
-        transferMemory(
+        writeMemory(
           {
-            memory_id: secret.memory_id,
-            target_namespace: "project:acme",
-            target_agent: "agent-b",
-            transferred_by: "agent-b",
+            agent_id: "agent-b",
+            namespace: "project:acme",
+            memory_type: "fact",
+            content: "replacement fact",
+            source_type: "agent",
+            source_ref: "",
+            source_tier: "human_confirmed",
+            supersedes: secret.memory_id,
+
           },
           store,
           { namespaceIsolation: true },
           { callerNamespace: "project:acme" }
         ),
-      /Memory not found/
+      /not found or not accessible/
     );
+
+    const parent = await readMemory(secret.memory_id, store, {
+      callerNamespace: "project:secret",
+      namespaceIsolation: true,
+    });
+    assert.equal(parent?.status, "active");
 
     unlinkSync(dbPath);
   });
 
-  it("transfers within caller namespace", async () => {
+  it("supersedes memory in same namespace", async () => {
     if (existsSync(dbPath)) unlinkSync(dbPath);
     const store = new SqliteStore(dbPath);
 
-    const source = await writeMemory(
+    const original = await writeMemory(
       {
         agent_id: "agent-a",
         namespace: "project:acme",
         memory_type: "fact",
-        content: "shared fact",
+        content: "old fact",
         source_type: "agent",
         source_ref: "",
         source_tier: "llm_derived",
-      },
-      store,
-      { namespaceIsolation: true },
-      { callerNamespace: "project:acme" }
-    );
 
-    const result = await transferMemory(
-      {
-        memory_id: source.memory_id,
-        target_namespace: "project:acme",
-        target_agent: "agent-b",
-        transferred_by: "agent-b",
       },
       store,
       { namespaceIsolation: true, dedup: false },
       { callerNamespace: "project:acme" }
     );
 
-    const transferred = await readMemory(result.new_memory_id, store, {
+    await writeMemory(
+      {
+        agent_id: "agent-b",
+        namespace: "project:acme",
+        memory_type: "fact",
+        content: "updated fact",
+        source_type: "agent",
+        source_ref: "",
+        source_tier: "human_confirmed",
+        supersedes: original.memory_id,
+
+      },
+      store,
+      { namespaceIsolation: true, dedup: false },
+      { callerNamespace: "project:acme" }
+    );
+
+    const parent = await readMemory(original.memory_id, store, {
       callerNamespace: "project:acme",
       namespaceIsolation: true,
     });
-    assert.ok(transferred);
-    assert.equal(transferred.agent_id, "agent-b");
-    assert.equal(transferred.content.value, "shared fact");
+    assert.equal(parent?.status, "superseded");
 
     unlinkSync(dbPath);
   });
 
-  it("rejects cross-namespace target when isolation is enabled", async () => {
+  it("blocks llm_derived supersede of expired llm_derived parent", async () => {
     if (existsSync(dbPath)) unlinkSync(dbPath);
     const store = new SqliteStore(dbPath);
 
-    const source = await writeMemory(
+    const expired = await writeMemory(
       {
         agent_id: "agent-a",
         namespace: "project:acme",
         memory_type: "fact",
-        content: "handoff candidate",
+        content: "expired fact",
         source_type: "agent",
         source_ref: "",
         source_tier: "llm_derived",
+        valid_until: "2020-01-01T00:00:00Z",
+
       },
       store,
       { namespaceIsolation: true, dedup: false },
@@ -111,18 +128,23 @@ describe("transfer source authorization", () => {
 
     await assert.rejects(
       () =>
-        transferMemory(
+        writeMemory(
           {
-            memory_id: source.memory_id,
-            target_namespace: "project:other",
-            target_agent: "agent-b",
-            transferred_by: "agent-b",
+            agent_id: "agent-b",
+            namespace: "project:acme",
+            memory_type: "fact",
+            content: "replacement",
+            source_type: "agent",
+            source_ref: "",
+            source_tier: "llm_derived",
+            supersedes: expired.memory_id,
+
           },
           store,
           { namespaceIsolation: true, dedup: false },
           { callerNamespace: "project:acme" }
         ),
-      NamespaceViolationError
+      AntiOuroborosError
     );
 
     unlinkSync(dbPath);

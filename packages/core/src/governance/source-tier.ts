@@ -1,5 +1,6 @@
 import type { AmhRecord } from "../schema/types.js";
 import type { AmhStore } from "../store/interface.js";
+import { readMemory, type ReadContext } from "../operations/read.js";
 
 export class AntiOuroborosError extends Error {
   constructor(message: string) {
@@ -10,11 +11,15 @@ export class AntiOuroborosError extends Error {
 
 export async function checkSourceTier(
   record: AmhRecord,
-  store: AmhStore
+  store: AmhStore,
+  readContext: ReadContext = {}
 ): Promise<void> {
   if (!record.supersedes) return;
 
-  const parent = await store.get(record.supersedes);
+  const parent = await readMemory(record.supersedes, store, {
+    ...readContext,
+    filterExpired: false,
+  });
   if (!parent) return;
 
   if (

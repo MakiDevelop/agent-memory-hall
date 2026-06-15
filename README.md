@@ -104,7 +104,7 @@ npx @chibakuma/agent-memory-hall --store postgres --path postgres://amh:amh@loca
 |------|-------------|
 | `amh_write` | Write with governance; returns `governance_applied` |
 | `amh_read` | Query by ID/filters; expired records filtered by default |
-| `amh_transfer` | Cross-namespace transfer with provenance |
+| `amh_transfer` | Reassign memory to another agent in caller namespace (provenance preserved; cross-namespace blocked when isolation on) |
 | `amh_audit` | Append-only event log |
 | `amh_status` | Version, counts, governance config |
 

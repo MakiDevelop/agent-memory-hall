@@ -146,7 +146,6 @@ async function cmdWrite(args: string[], opts: ServerOptions): Promise<void> {
       source_type: "agent",
       source_ref: sourceRef,
       source_tier: tier ?? "llm_derived",
-      caller_namespace: opts.callerNamespace ?? ctx.callerNamespace,
     },
     ctx.store,
     {
@@ -217,7 +216,6 @@ async function cmdImport(args: string[], opts: ServerOptions): Promise<void> {
           source_tier: record.source.tier,
           valid_until: record.valid_until,
           supersedes: record.supersedes,
-          caller_namespace: opts.callerNamespace ?? ctx.callerNamespace ?? record.namespace,
         },
         ctx.store,
         {

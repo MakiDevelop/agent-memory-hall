@@ -22,9 +22,10 @@ describe("write + read integration", () => {
         source_type: "agent",
         source_ref: "session:1",
         source_tier: "llm_derived",
-        caller_namespace: "project:acme",
       },
-      store
+      store,
+      undefined,
+      { callerNamespace: "project:acme" }
     );
 
     assert.ok(result.memory_id);
@@ -70,9 +71,10 @@ describe("write + read integration", () => {
             source_type: "agent",
             source_ref: "",
             source_tier: "llm_derived",
-            caller_namespace: "project:acme",
           },
-          store
+          store,
+          { namespaceIsolation: true },
+          { callerNamespace: "project:acme" }
         ),
       NamespaceViolationError
     );

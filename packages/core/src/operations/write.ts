@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { AmhRecordSchema, type AmhRecord, type AuditEvent } from "../schema/types.js";
 import type { AmhStore } from "../store/interface.js";
 import { runWriteGate, type WriteGateConfig, type WriteGateContext } from "../governance/write-gate.js";
+import { readMemory } from "./read.js";
 
 export interface WriteInput {
   agent_id: string;
@@ -14,7 +15,6 @@ export interface WriteInput {
   source_tier: AmhRecord["source"]["tier"];
   valid_until?: string;
   supersedes?: string;
-  caller_namespace?: string;
 }
 
 export interface WriteResult {
@@ -58,8 +58,8 @@ export async function writeMemory(
   AmhRecordSchema.parse(record);
 
   const context: WriteGateContext = {
-    callerNamespace: gateContext?.callerNamespace ?? input.caller_namespace,
     ...gateContext,
+    callerNamespace: gateContext?.callerNamespace,
   };
 
   const { record: gated, governanceApplied } = await runWriteGate(
@@ -71,20 +71,27 @@ export async function writeMemory(
   record = gated;
 
   if (input.supersedes) {
-    const parent = await store.get(input.supersedes);
-    if (parent) {
-      parent.status = "superseded";
-      await store.put(parent);
-      const supersedeAudit: AuditEvent = {
-        event_id: randomUUID(),
-        memory_id: input.supersedes,
-        operation: "supersede",
-        agent_id: input.agent_id,
-        timestamp: now,
-        details: `Superseded by ${memoryId}`,
-      };
-      await store.appendAudit(supersedeAudit);
+    const parent = await readMemory(input.supersedes, store, {
+      callerNamespace: context.callerNamespace,
+      namespaceIsolation: gateConfig?.namespaceIsolation ?? true,
+      filterExpired: false,
+    });
+    if (!parent) {
+      throw new Error(
+        `Cannot supersede: parent memory not found or not accessible: ${input.supersedes}`
+      );
     }
+    parent.status = "superseded";
+    await store.put(parent);
+    const supersedeAudit: AuditEvent = {
+      event_id: randomUUID(),
+      memory_id: input.supersedes,
+      operation: "supersede",
+      agent_id: input.agent_id,
+      timestamp: now,
+      details: `Superseded by ${memoryId}`,
+    };
+    await store.appendAudit(supersedeAudit);
   }
 
   await store.put(record);

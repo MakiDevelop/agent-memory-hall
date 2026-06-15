@@ -20,7 +20,7 @@ src/
 ├── operations/
 │   ├── write.ts          # Create memory + governance + audit
 │   ├── read.ts           # Query with namespace isolation + lifecycle filter
-│   ├── transfer.ts       # Cross-agent transfer through write-gate
+│   ├── transfer.ts       # Same-namespace agent reassignment through write-gate
 │   └── audit.ts          # Append-only event log
 ├── governance/
 │   ├── source-tier.ts    # Anti-Ouroboros on supersede chains

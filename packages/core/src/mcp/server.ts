@@ -167,7 +167,7 @@ export function createAmhServer(context: AmhServerContext) {
 
   server.tool(
     "amh_transfer",
-    "Transfer a memory to another namespace/agent, preserving provenance",
+    "Reassign a memory to another agent within the caller namespace (namespace isolation blocks cross-namespace targets), preserving provenance",
     {
       memory_id: z.string().describe("ID of memory to transfer"),
       target_namespace: z.string().describe("Destination namespace"),
