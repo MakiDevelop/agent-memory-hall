@@ -2,84 +2,50 @@
 
 ---
 
-I spent two months running a 7-agent AI team on a shared memory system.
-
-Then I turned the lessons into an open protocol.
+I've been experimenting with shared memory for multi-agent AI systems. Learned some things the hard way — sharing in case it's useful.
 
 ---
 
-The problem with AI agent memory isn't storage — Mem0, Zep, and Letta store memories fine.
+AI agents today can call tools (MCP), talk to each other (A2A), and verify identities (DID). But there's a basic problem that's still unsolved: how agents remember.
 
-The problem is governance:
-
-→ Switch frameworks = lose all memories
-→ Agent A decides something, Agent B has no idea
-→ An LLM summarizes its own summaries, drifting from reality in 3 cycles (I call this the Ouroboros problem)
-→ Nobody knows who wrote a memory, when it expires, or who can delete it
-
-I hit all four running a 7-agent council (Claude, Codex, Gemini, Grok, gemma4, Perplexity Max, SuperGrok) across 60+ sessions on my self-built memory system.
-
-Four hard-earned lessons:
-
-1️⃣ Without dedup, memory bloats in days. Content-hash checks cut storage growth 40%.
-
-2️⃣ LLM-derived memories are dangerous. Tag every memory with a source_tier (raw_source / llm_derived / human_confirmed). Block llm_derived → llm_derived chains.
-
-3️⃣ Namespace isolation is non-negotiable. Seven agents sharing one store without walls = disaster.
-
-4️⃣ Every memory needs provenance. "Who wrote this? When? Based on what?" Untrusted memory is worse than no memory — it's hallucination with a citation.
+Switch frameworks, and memories are gone. Agent A makes a decision, Agent B has no idea. An LLM summarizes its own summaries, drifting from reality in a few cycles. Nobody knows who wrote a memory, when it should expire, or who's allowed to delete it.
 
 ---
 
-So I built Agent Memory Hall (AMH) — an open interchange protocol for agent memory governance.
+Some context: over the past two months, I've been running a multi-agent team (Claude, Codex, Gemini, and others) on a self-built memory system called memhall — about 60 collaborative sessions so far.
 
-AMH is not a memory store. Not a framework. Not competing with Mem0 or Letta.
+A few lessons that might help others working on multi-agent systems:
 
-AMH is a governance layer: how memories are written, transferred, expired, and audited.
+1️⃣ Without dedup, memory bloats fast. Agents tend to re-record things they already know. Content-hash checks before every write helped a lot.
 
-14 fields. 4 operations. 4 governance defaults — all on from day one.
+2️⃣ LLM-derived memories need careful handling. The LLM takes last session's summary as fact and generates a new summary on top of it. After a few rounds, it's drifted from the original evidence. Our fix: tag every memory with a source_tier (raw_source / llm_derived / human_confirmed) and block llm_derived-to-llm_derived chains.
 
-One command to start:
+3️⃣ Namespace isolation matters more than you'd think. Multiple agents sharing one memory store without walls leads to context leakage.
+
+4️⃣ Every memory needs provenance. "Who wrote this? When? Based on what?" If you can't answer these, the memory isn't trustworthy.
+
+---
+
+I've packaged these governance patterns into Agent Memory Hall (AMH) — an open-source governance layer for agent memory.
+
+It's not a memory store and it's not trying to replace Mem0 or Letta. It's more of a governance layer: defining how memories are written, transferred, expired, and audited. Any framework can plug in.
+
+It's very early (v0.1), but it works today:
+
 npx @chibakuma/agent-memory-hall
 
-Works with Claude Desktop, Cursor, Codex — any MCP host.
+It's MCP-native — works with Claude Desktop, Cursor, and any MCP host.
 
 ---
 
-How it differs from UMP (Universal Memory Protocol):
-
-UMP defines the format. AMH ships the governance.
-
-UMP's governance is optional (integrity at L3). AMH's is default — because we learned that ungoverned memory degrades to noise within weeks.
-
-They're not competitors. AMH imports/exports UMP format. Different layers.
+Compared to UMP (Universal Memory Protocol), which focuses on format definition, AMH focuses on governance defaults — dedup, source-tier tracking, namespace isolation are all on by default. The two are compatible; AMH can import/export UMP format.
 
 ---
 
-Live today:
-✅ npm: @chibakuma/agent-memory-hall v0.1.0
-✅ MCP server (5 tools)
-✅ UMP & Mem0 import adapters
-✅ Whitepaper (5 chapters, 10 references)
-✅ GitHub: github.com/MakiDevelop/agent-memory-hall
+Still very early stage. If you're building multi-agent systems and have run into memory issues, I'd love to hear your experience:
 
-What's next:
-→ SQLite adapter (July)
-→ LoCoMo benchmark with public judge prompt (August)
-→ Multi-agent dev team case study (September)
-→ v1.0 spec freeze + community RFC (October)
+📝 Blog (technical details): chiba.tw/amhblog
+💻 GitHub: chiba.tw/amhgit
+📦 npm: chiba.tw/amhnpm
 
----
-
-MCP standardized how agents use tools.
-A2A standardized how agents talk.
-Someone needs to standardize how agents remember.
-
-I'm betting the winner won't be the most theoretically complete spec. It'll be the one that ships governance by default.
-
-The code is open. The spec is free. The memories are yours.
-
-Full blog post: https://blog.chibakuma.com/ump-defines-the-wire-amh-ships-the-governance/
-
-#AIAgent #AgentMemory #MCP #OpenSource #AgentMemoryHall #MultiAgent #LLM
-
+#AIAgent #AgentMemory #MCP #OpenSource #MultiAgent #LLM
