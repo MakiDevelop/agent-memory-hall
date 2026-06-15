@@ -4,7 +4,7 @@ import { dirname } from "node:path";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { AmhStore } from "./interface.js";
-import type { AmhRecord, AuditEvent, AmhQuery } from "../schema/types.js";
+import type { AmhRecord, AuditEvent, AmhQuery, SourceTier, TrustProof } from "../schema/types.js";
 
 export class SqliteStore implements AmhStore {
   private db: Database.Database;
@@ -111,6 +111,10 @@ export class SqliteStore implements AmhStore {
       supersedes: record.supersedes ?? null,
       content_hash: record.content_hash ?? null,
     });
+  }
+
+  async patchTier(memoryId: string, newTier: SourceTier, _trustProof: TrustProof): Promise<void> {
+    this.db.prepare("UPDATE memories SET source_tier = ? WHERE memory_id = ?").run(newTier, memoryId);
   }
 
   async get(memoryId: string): Promise<AmhRecord | null> {

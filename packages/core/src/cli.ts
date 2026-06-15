@@ -8,6 +8,7 @@ import { queryMemories, readMemory } from "./operations/read.js";
 import { getAuditLog } from "./operations/audit.js";
 import { revokeMemory } from "./operations/revoke.js";
 import { transferMemory } from "./operations/transfer.js";
+import { tierUpgrade } from "./operations/tier-upgrade.js";
 import { importUmpFile, exportUmpFile } from "./import/ump.js";
 import { importMem0File } from "./import/mem0.js";
 import { resolveGovernance } from "./config.js";
@@ -82,6 +83,7 @@ Usage:
   amh import --from <ump|mem0> <file>
   amh export --to ump --out <file> [--ns <namespace>]
   amh transfer --id <memory_id> --agent <id> --ns <namespace> --by <agent>
+  amh tier-upgrade --id <memory_id> --tier <tier> --by <agent> [--method <method>]
   amh forget --id <memory_id> --by <agent> [--reason <text>]
   amh audit --id <memory_id>
   amh status
@@ -330,6 +332,33 @@ async function cmdTransfer(args: string[], opts: ServerOptions): Promise<void> {
   console.log(JSON.stringify(result, null, 2));
 }
 
+async function cmdTierUpgrade(args: string[], opts: ServerOptions): Promise<void> {
+  const id = flagValue(args, "--id");
+  const tier = flagValue(args, "--tier") as "llm_derived" | "human_confirmed" | undefined;
+  const by = flagValue(args, "--by");
+  const method = (flagValue(args, "--method") ?? "human_review") as "human_review" | "peer_consensus" | "automated_check" | "cross_reference";
+  if (!id || !tier || !by) {
+    console.error("Usage: amh tier-upgrade --id <memory_id> --tier <llm_derived|human_confirmed> --by <agent> [--method <method>]");
+    process.exit(1);
+  }
+
+  const ctx = await createAmhContext(opts);
+  const result = await tierUpgrade(
+    id,
+    tier,
+    {
+      tier,
+      confirmed_by: by,
+      confirmed_at: new Date().toISOString(),
+      evidence_ids: [],
+      method,
+    },
+    ctx.store,
+    { callerNamespace: opts.callerNamespace ?? ctx.callerNamespace },
+  );
+  console.log(JSON.stringify(result, null, 2));
+}
+
 async function cmdAudit(args: string[], opts: ServerOptions): Promise<void> {
   const id = flagValue(args, "--id");
   if (!id) {
@@ -410,6 +439,11 @@ if (command === "--help" || command === "-h" || rawArgs.includes("--help") || ra
   });
 } else if (command === "transfer") {
   cmdTransfer(rest, opts).catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+} else if (command === "tier-upgrade") {
+  cmdTierUpgrade(rest, opts).catch((err) => {
     console.error(err);
     process.exit(1);
   });

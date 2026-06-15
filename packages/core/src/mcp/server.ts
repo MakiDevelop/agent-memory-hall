@@ -9,6 +9,7 @@ import { writeMemory } from "../operations/write.js";
 import { readMemory, queryMemories } from "../operations/read.js";
 import { transferMemory } from "../operations/transfer.js";
 import { revokeMemory } from "../operations/revoke.js";
+import { tierUpgrade } from "../operations/tier-upgrade.js";
 import { getAuditLog } from "../operations/audit.js";
 import { registerAmhResources } from "./resources.js";
 
@@ -238,6 +239,60 @@ export function createAmhServer(context: AmhServerContext) {
           store,
           gateConfig,
           { callerNamespace }
+        );
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      } catch (err) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                {
+                  error: err instanceof Error ? err.message : String(err),
+                  error_type: err instanceof Error ? err.name : "Error",
+                },
+                null,
+                2
+              ),
+            },
+          ],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    "amh_tier_upgrade",
+    "Upgrade a memory's source tier (raw_source → llm_derived → human_confirmed). Requires a trust proof for human_confirmed.",
+    {
+      memory_id: z.string().describe("Memory ID to upgrade"),
+      new_tier: z.enum(["llm_derived", "human_confirmed"]).describe("Target tier (must be higher than current)"),
+      confirmed_by: z.string().describe("Who confirmed this upgrade (agent or human ID)"),
+      method: z.enum(["human_review", "peer_consensus", "automated_check", "cross_reference"]).default("human_review"),
+      evidence_ids: z.array(z.string()).default([]).describe("IDs of supporting evidence"),
+    },
+    async (params) => {
+      try {
+        const result = await tierUpgrade(
+          params.memory_id,
+          params.new_tier,
+          {
+            tier: params.new_tier,
+            confirmed_by: params.confirmed_by,
+            confirmed_at: new Date().toISOString(),
+            evidence_ids: params.evidence_ids,
+            method: params.method,
+          },
+          store,
+          { callerNamespace },
         );
         return {
           content: [

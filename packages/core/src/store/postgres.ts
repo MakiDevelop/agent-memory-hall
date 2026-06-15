@@ -1,6 +1,6 @@
 import pg from "pg";
 import type { AmhStore } from "./interface.js";
-import type { AmhRecord, AuditEvent, AmhQuery } from "../schema/types.js";
+import type { AmhRecord, AuditEvent, AmhQuery, SourceTier, TrustProof } from "../schema/types.js";
 
 export class PostgresStore implements AmhStore {
   private pool: pg.Pool;
@@ -98,6 +98,11 @@ export class PostgresStore implements AmhStore {
         record.valid_until ?? null, record.supersedes ?? null, record.content_hash ?? null,
       ]
     );
+  }
+
+  async patchTier(memoryId: string, newTier: SourceTier, _trustProof: TrustProof): Promise<void> {
+    await this.ensureMigrated();
+    await this.pool.query("UPDATE memories SET source_tier = $1 WHERE memory_id = $2", [newTier, memoryId]);
   }
 
   async get(memoryId: string): Promise<AmhRecord | null> {
