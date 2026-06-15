@@ -78,30 +78,30 @@ You can use both. AMH imports and exports UMP format. They're not competitors; t
 
 ## What's Live Today
 
-- **npm**: `@chibakuma/agent-memory-hall` v0.1.0
+- **npm**: `@chibakuma/agent-memory-hall` v0.3.0
 - **MCP server**: works with Claude Desktop, Cursor, Codex, any MCP host
+- **3 store backends**:
+  - **SQLite** (default) — single agent, zero config: `npx @chibakuma/agent-memory-hall`
+  - **PostgreSQL** — multi-agent, concurrent access: `docker compose up -d`
+  - **JSON** — lightest option, good for debugging
 - **Import adapters**: UMP and Mem0
 - **Governance**: dedup + anti-Ouroboros + namespace isolation + source-tier — all on by default
 - **Whitepaper**: 5 chapters, 10 references, freely available
 
 ## What's Next
 
-- SQLite store + Letta adapter (July)
+- Letta MemFS import adapter (July)
 - LoCoMo benchmark with public judge prompt (August)
 - Multi-agent dev team case study (September)
 - v1.0 spec freeze + community RFC (October)
 
-## The Bet
+## Why I'm Sharing This
 
-Here's what I believe:
+MCP standardized how agents use tools. A2A standardized how agents talk. Memory feels like the next piece that needs a shared approach.
 
-MCP standardized how agents use tools. A2A standardized how agents talk. **Someone needs to standardize how agents remember.**
+There are already several projects working on this — UMP, various AMP variants, a new W3C community group. I don't know which approach will gain traction, but I think the governance side (dedup, provenance, lifecycle) is underexplored. AMH is my attempt to contribute what I've learned from running a real multi-agent memory system.
 
-That "someone" is currently a fragmented mess — five projects named AMP, a two-person UMP, a four-person W3C community group, and a hundred developers rolling their own.
-
-Agent Memory Hall is my bet that the winner won't be the most theoretically complete spec. It'll be the one that ships governance by default, because ungoverned memory — like ungoverned anything — degrades into chaos.
-
-**The code is open. The spec is free. The memories are yours.**
+If you're working on something similar, I'd love to compare notes.
 
 ---
 

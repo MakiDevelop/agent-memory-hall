@@ -32,9 +32,15 @@
 
 它不是記憶儲存，也不是要取代 Mem0 或 Letta。它比較像是一個治理層：定義記憶怎麼寫入、傳遞、過期、審計，任何框架都能接。
 
-目前是很早期的 v0.1，但已經可以用了：
+目前是 v0.3，還在早期，但已經可以用了：
 
+單 Agent（零設定）：
 npx @chibakuma/agent-memory-hall
+→ SQLite 存在 ~/.amh/memory.db，開箱即用
+
+多 Agent（Docker + Postgres）：
+docker compose up -d
+npx @chibakuma/agent-memory-hall --store postgres --path postgres://amh:amh@localhost:5432/amh
 
 支援 MCP，可以直接接 Claude Desktop / Cursor。
 

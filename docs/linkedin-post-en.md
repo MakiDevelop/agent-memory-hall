@@ -30,9 +30,15 @@ I've packaged these governance patterns into Agent Memory Hall (AMH) — an open
 
 It's not a memory store and it's not trying to replace Mem0 or Letta. It's more of a governance layer: defining how memories are written, transferred, expired, and audited. Any framework can plug in.
 
-It's very early (v0.1), but it works today:
+It's at v0.3 now — still early, but usable:
 
+Single agent (zero config):
 npx @chibakuma/agent-memory-hall
+→ SQLite at ~/.amh/memory.db, works out of the box
+
+Multi-agent (Docker + Postgres):
+docker compose up -d
+npx @chibakuma/agent-memory-hall --store postgres --path postgres://amh:amh@localhost:5432/amh
 
 It's MCP-native — works with Claude Desktop, Cursor, and any MCP host.
 
