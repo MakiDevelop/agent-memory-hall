@@ -6,6 +6,8 @@ import { AMH_VERSION } from "./version.js";
 import { writeMemory } from "./operations/write.js";
 import { queryMemories, readMemory } from "./operations/read.js";
 import { getAuditLog } from "./operations/audit.js";
+import { revokeMemory } from "./operations/revoke.js";
+import { transferMemory } from "./operations/transfer.js";
 import { importUmpFile } from "./import/ump.js";
 import { importMem0File } from "./import/mem0.js";
 import { resolveGovernance } from "./config.js";
@@ -78,6 +80,8 @@ Usage:
   amh write [options] <content>
   amh read [options]
   amh import --from <ump|mem0> <file>
+  amh transfer --id <memory_id> --agent <id> --ns <namespace> --by <agent>
+  amh forget --id <memory_id> --by <agent> [--reason <text>]
   amh audit --id <memory_id>
   amh status
   amh --help
@@ -235,6 +239,66 @@ async function cmdImport(args: string[], opts: ServerOptions): Promise<void> {
   console.log(JSON.stringify({ imported, total: records.length, errors }, null, 2));
 }
 
+async function cmdForget(args: string[], opts: ServerOptions): Promise<void> {
+  const id = flagValue(args, "--id");
+  const by = flagValue(args, "--by");
+  const reason = flagValue(args, "--reason");
+  if (!id || !by) {
+    console.error("Usage: amh forget --id <memory_id> --by <agent> [--reason <text>]");
+    process.exit(1);
+  }
+
+  const ctx = await createAmhContext(opts);
+  const governance = resolveGovernance(ctx.config);
+  const result = await revokeMemory(
+    {
+      memory_id: id,
+      revoked_by: by,
+      reason,
+    },
+    ctx.store,
+    {
+      dedup: governance.dedup,
+      antiOuroboros: governance.antiOuroboros,
+      namespaceIsolation: governance.namespaceIsolation,
+      writeGate: governance.writeGate,
+    },
+    { callerNamespace: opts.callerNamespace ?? ctx.callerNamespace }
+  );
+  console.log(JSON.stringify(result, null, 2));
+}
+
+async function cmdTransfer(args: string[], opts: ServerOptions): Promise<void> {
+  const id = flagValue(args, "--id");
+  const agent = flagValue(args, "--agent");
+  const ns = flagValue(args, "--ns");
+  const by = flagValue(args, "--by");
+  if (!id || !agent || !ns || !by) {
+    console.error("Usage: amh transfer --id <memory_id> --agent <id> --ns <namespace> --by <agent>");
+    process.exit(1);
+  }
+
+  const ctx = await createAmhContext(opts);
+  const governance = resolveGovernance(ctx.config);
+  const result = await transferMemory(
+    {
+      memory_id: id,
+      target_namespace: ns,
+      target_agent: agent,
+      transferred_by: by,
+    },
+    ctx.store,
+    {
+      dedup: governance.dedup,
+      antiOuroboros: governance.antiOuroboros,
+      namespaceIsolation: governance.namespaceIsolation,
+      writeGate: governance.writeGate,
+    },
+    { callerNamespace: opts.callerNamespace ?? ctx.callerNamespace }
+  );
+  console.log(JSON.stringify(result, null, 2));
+}
+
 async function cmdAudit(args: string[], opts: ServerOptions): Promise<void> {
   const id = flagValue(args, "--id");
   if (!id) {
@@ -246,6 +310,7 @@ async function cmdAudit(args: string[], opts: ServerOptions): Promise<void> {
   const record = await readMemory(id, ctx.store, {
     callerNamespace: opts.callerNamespace ?? ctx.callerNamespace,
     namespaceIsolation: governance.namespaceIsolation,
+    filterInactive: false,
   });
   if (!record) {
     console.log(JSON.stringify([], null, 2));
@@ -297,6 +362,16 @@ if (command === "--help" || command === "-h" || rawArgs.includes("--help") || ra
   });
 } else if (command === "import") {
   cmdImport(rest, opts).catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+} else if (command === "forget") {
+  cmdForget(rest, opts).catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+} else if (command === "transfer") {
+  cmdTransfer(rest, opts).catch((err) => {
     console.error(err);
     process.exit(1);
   });

@@ -8,6 +8,7 @@ import { AMH_VERSION } from "../version.js";
 import { writeMemory } from "../operations/write.js";
 import { readMemory, queryMemories } from "../operations/read.js";
 import { transferMemory } from "../operations/transfer.js";
+import { revokeMemory } from "../operations/revoke.js";
 import { getAuditLog } from "../operations/audit.js";
 import { registerAmhResources } from "./resources.js";
 
@@ -217,13 +218,65 @@ export function createAmhServer(context: AmhServerContext) {
   );
 
   server.tool(
+    "amh_forget",
+    "Revoke a memory (soft delete): marks status revoked, appends audit, hides from default reads",
+    {
+      memory_id: z.string().describe("ID of memory to revoke"),
+      revoked_by: z.string().describe("Agent performing the revocation"),
+      reason: z.string().optional().describe("Optional reason for audit trail"),
+    },
+    async (params) => {
+      try {
+        const result = await revokeMemory(
+          {
+            memory_id: params.memory_id,
+            revoked_by: params.revoked_by,
+            reason: params.reason,
+          },
+          store,
+          gateConfig,
+          { callerNamespace }
+        );
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      } catch (err) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                {
+                  error: err instanceof Error ? err.message : String(err),
+                  error_type: err instanceof Error ? err.name : "Error",
+                },
+                null,
+                2
+              ),
+            },
+          ],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
     "amh_audit",
     "Get the append-only audit log for a memory record",
     {
       memory_id: z.string().describe("Memory ID to audit"),
     },
     async (params) => {
-      const record = await readMemory(params.memory_id, store, readCtx);
+      const record = await readMemory(params.memory_id, store, {
+        ...readCtx,
+        filterInactive: false,
+      });
       if (!record) {
         return {
           content: [

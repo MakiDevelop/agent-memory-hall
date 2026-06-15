@@ -1,6 +1,10 @@
+import { createHash } from "node:crypto";
+import { homedir } from "node:os";
+import { dirname, join } from "node:path";
+import { mkdir, readFile } from "node:fs/promises";
 import type { AmhStore } from "./interface.js";
 import type { AmhRecord, AuditEvent, AmhQuery } from "../schema/types.js";
-import { computeContentHash } from "../governance/dedup.js";
+import { withFileLock } from "./file-lock.js";
 
 interface MemhallWriteResponse {
   entry_id: string;
@@ -77,17 +81,33 @@ function reverseMapType(amhType: AmhRecord["memory_type"]): string {
   return amhType;
 }
 
+function defaultAuditPath(baseUrl: string): string {
+  const hash = createHash("sha256").update(baseUrl).digest("hex").slice(0, 16);
+  return join(homedir(), ".amh", `memhall-audit-${hash}.json`);
+}
+
 export class MemhallStore implements AmhStore {
   private baseUrl: string;
   private token: string;
-  private localAudit: AuditEvent[] = [];
+  private auditPath: string;
 
-  constructor(baseUrl: string, token: string) {
+  constructor(baseUrl: string, token: string, auditPath?: string) {
     if (!baseUrl) {
       throw new Error("Memhall store requires --path with the memhall API URL");
     }
     this.baseUrl = baseUrl.replace(/\/$/, "");
     this.token = token;
+    this.auditPath = auditPath ?? defaultAuditPath(this.baseUrl);
+  }
+
+  private async readAuditFile(): Promise<AuditEvent[]> {
+    try {
+      const raw = await readFile(this.auditPath, "utf-8");
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? (parsed as AuditEvent[]) : [];
+    } catch {
+      return [];
+    }
   }
 
   private async api<T>(
@@ -209,11 +229,18 @@ export class MemhallStore implements AmhStore {
   }
 
   async appendAudit(event: AuditEvent): Promise<void> {
-    this.localAudit.push(event);
+    await withFileLock(this.auditPath, async () => {
+      const events = await this.readAuditFile();
+      events.push(event);
+      const { writeFile } = await import("node:fs/promises");
+      await mkdir(dirname(this.auditPath), { recursive: true });
+      await writeFile(this.auditPath, JSON.stringify(events, null, 2), "utf-8");
+    });
   }
 
   async getAudit(memoryId: string): Promise<AuditEvent[]> {
-    return this.localAudit.filter((e) => e.memory_id === memoryId);
+    const events = await this.readAuditFile();
+    return events.filter((e) => e.memory_id === memoryId);
   }
 
   async count(): Promise<number> {

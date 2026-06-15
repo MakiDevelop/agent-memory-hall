@@ -96,9 +96,16 @@ describe("supersede authorization", () => {
       { callerNamespace: "project:acme" }
     );
 
+    const hidden = await readMemory(original.memory_id, store, {
+      callerNamespace: "project:acme",
+      namespaceIsolation: true,
+    });
+    assert.equal(hidden, null);
+
     const parent = await readMemory(original.memory_id, store, {
       callerNamespace: "project:acme",
       namespaceIsolation: true,
+      filterInactive: false,
     });
     assert.equal(parent?.status, "superseded");
 

@@ -37,4 +37,14 @@ describe("lifecycle", () => {
     assert.equal(filtered.length, 1);
     assert.equal(filtered[0].memory_id, "1");
   });
+
+  it("filters revoked and superseded records", () => {
+    const filtered = applyLifecycleFilter([
+      base,
+      { ...base, memory_id: "2", status: "revoked" },
+      { ...base, memory_id: "3", status: "superseded" },
+    ]);
+    assert.equal(filtered.length, 1);
+    assert.equal(filtered[0].memory_id, "1");
+  });
 });

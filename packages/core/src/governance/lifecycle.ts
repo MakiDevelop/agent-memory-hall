@@ -6,7 +6,12 @@ export function isExpired(record: AmhRecord, now = new Date()): boolean {
   return new Date(record.valid_until) < now;
 }
 
+export function isInactive(record: AmhRecord, now = new Date()): boolean {
+  if (record.status === "revoked" || record.status === "superseded") return true;
+  return isExpired(record, now);
+}
+
 export function applyLifecycleFilter(records: AmhRecord[]): AmhRecord[] {
   const now = new Date();
-  return records.filter((r) => !isExpired(r, now));
+  return records.filter((r) => !isInactive(r, now));
 }

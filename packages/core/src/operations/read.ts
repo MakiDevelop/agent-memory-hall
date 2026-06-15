@@ -7,6 +7,9 @@ import { requireTrustedCaller } from "../governance/caller.js";
 export interface ReadContext {
   callerNamespace?: string;
   namespaceIsolation?: boolean;
+  /** When false, expired / revoked / superseded records are hidden (default true). */
+  filterInactive?: boolean;
+  /** @deprecated Use filterInactive */
   filterExpired?: boolean;
 }
 
@@ -26,7 +29,8 @@ export async function readMemory(
     }
   }
 
-  if (context.filterExpired !== false) {
+  const filterInactive = context.filterInactive ?? context.filterExpired ?? true;
+  if (filterInactive) {
     const filtered = applyLifecycleFilter([record]);
     return filtered[0] ?? null;
   }
@@ -48,7 +52,8 @@ export async function queryMemories(
 
   const results = await store.query(scoped);
 
-  if (context.filterExpired !== false) {
+  const filterInactive = context.filterInactive ?? context.filterExpired ?? true;
+  if (filterInactive) {
     return applyLifecycleFilter(results);
   }
 

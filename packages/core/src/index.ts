@@ -14,6 +14,8 @@ export { readMemory, queryMemories } from "./operations/read.js";
 export type { ReadContext } from "./operations/read.js";
 export { transferMemory } from "./operations/transfer.js";
 export type { TransferInput, TransferResult } from "./operations/transfer.js";
+export { revokeMemory } from "./operations/revoke.js";
+export type { RevokeInput, RevokeResult } from "./operations/revoke.js";
 export { getAuditLog } from "./operations/audit.js";
 export { createAmhServer, createAmhContext, startServer } from "./mcp/server.js";
 export type { ServerOptions, AmhServerContext } from "./mcp/server.js";
@@ -28,6 +30,6 @@ export {
 } from "./config.js";
 export type { AmhConfig, ResolvedGovernance } from "./config.js";
 export { computeContentHash } from "./governance/dedup.js";
-export { applyLifecycleFilter, isExpired } from "./governance/lifecycle.js";
+export { applyLifecycleFilter, isExpired, isInactive } from "./governance/lifecycle.js";
 export { enforceNamespaceIsolation, NamespaceViolationError } from "./governance/namespace.js";
 export { AMH_VERSION } from "./version.js";
