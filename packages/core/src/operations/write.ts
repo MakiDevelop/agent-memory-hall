@@ -82,7 +82,14 @@ export async function writeMemory(
       );
     }
     parent.status = "superseded";
-    await store.put(parent);
+    if (store.patchMetadata) {
+      await store.patchMetadata(input.supersedes, {
+        amh_status: "superseded",
+        amh_version: parent.amh_version,
+      });
+    } else {
+      await store.put(parent);
+    }
     const supersedeAudit: AuditEvent = {
       event_id: randomUUID(),
       memory_id: input.supersedes,
@@ -106,5 +113,5 @@ export async function writeMemory(
   };
   await store.appendAudit(auditEvent);
 
-  return { memory_id: memoryId, version: 1, governance_applied: governanceApplied };
+  return { memory_id: record.memory_id, version: 1, governance_applied: governanceApplied };
 }

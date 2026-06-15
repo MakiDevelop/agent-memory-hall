@@ -48,7 +48,16 @@ export async function revokeMemory(
 
   const now = new Date().toISOString();
   record.status = "revoked";
-  await store.put(record);
+  if (store.patchMetadata) {
+    await store.patchMetadata(input.memory_id, {
+      amh_status: "revoked",
+      amh_version: record.amh_version,
+      revoked_by: input.revoked_by,
+      revoked_reason: input.reason ?? "Memory revoked",
+    });
+  } else {
+    await store.put(record);
+  }
 
   const auditEvent: AuditEvent = {
     event_id: randomUUID(),

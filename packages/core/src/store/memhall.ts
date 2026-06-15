@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { mkdir, readFile } from "node:fs/promises";
 import type { AmhStore } from "./interface.js";
 import type { AmhRecord, AuditEvent, AmhQuery } from "../schema/types.js";
+import { computeContentHash } from "../governance/dedup.js";
 import { withFileLock } from "./file-lock.js";
 
 interface MemhallWriteResponse {
@@ -90,6 +91,19 @@ function reverseMapType(amhType: AmhRecord["memory_type"]): string {
   return amhType;
 }
 
+function amhMetadataFromRecord(record: AmhRecord): Record<string, unknown> {
+  return {
+    amh_version: record.amh_version,
+    amh_status: record.status,
+    source_type: record.source.type,
+    source_ref: record.source.ref,
+    source_tier: record.source.tier,
+    valid_until: record.valid_until,
+    supersedes: record.supersedes,
+    amh_content_hash: computeContentHash(record.content.value),
+  };
+}
+
 function defaultAuditPath(baseUrl: string): string {
   const hash = createHash("sha256").update(baseUrl).digest("hex").slice(0, 16);
   return join(homedir(), ".amh", `memhall-audit-${hash}.json`);
@@ -151,22 +165,15 @@ export class MemhallStore implements AmhStore {
       type: reverseMapType(record.memory_type),
       content: record.content.value,
       tags: ["amh"],
-      metadata: {
-        amh_version: record.amh_version,
-        source_type: record.source.type,
-        source_ref: record.source.ref,
-        source_tier: record.source.tier,
-        valid_until: record.valid_until,
-        supersedes: record.supersedes,
-        amh_status: record.status,
-      },
+      metadata: amhMetadataFromRecord(record),
     };
 
-    if (record.memory_id) {
-      payload.entry_id = record.memory_id;
-    }
+    const response = await this.api<MemhallWriteResponse>("POST", "/v1/memory/write", payload);
+    record.memory_id = response.entry_id;
+  }
 
-    await this.api<MemhallWriteResponse>("POST", "/v1/memory/write", payload);
+  async patchMetadata(memoryId: string, metadata: Record<string, unknown>): Promise<void> {
+    await this.api("PATCH", `/v1/memory/${memoryId}`, { metadata });
   }
 
   async get(memoryId: string): Promise<AmhRecord | null> {

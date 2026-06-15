@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.6.3 — 2026-06-15
+
+### Added (`integration:memhall-amh`)
+- `AmhStore.patchMetadata()` optional method; `MemhallStore` calls `PATCH /v1/memory/{id}`
+- `metadata.amh_content_hash` (BLAKE3) on memhall writes
+
+### Fixed (`integration:memhall-amh`)
+- `MemhallStore.put` adopts server `entry_id` (ULID); `writeMemory` returns canonical id
+- `revokeMemory` / supersede use metadata PATCH on memhall backend (revoke no longer lost on content dedup)
+
 ## 0.6.2 — 2026-06-15
 
 ### Added
