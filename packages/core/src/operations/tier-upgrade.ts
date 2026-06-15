@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { AmhStore } from "../store/interface.js";
+import { TrustProofSchema } from "../schema/types.js";
 import type { TrustProof, SourceTier } from "../schema/types.js";
 import { readMemory } from "./read.js";
 
@@ -56,20 +57,23 @@ export async function tierUpgrade(
     throw new TierDowngradeError(oldTier, newTier);
   }
 
-  if (!trustProof.confirmed_by || !trustProof.confirmed_at) {
-    throw new InvalidTrustProofError("TrustProof must have confirmed_by and confirmed_at");
+  const parsed = TrustProofSchema.safeParse(trustProof);
+  if (!parsed.success) {
+    throw new InvalidTrustProofError(`Invalid TrustProof: ${parsed.error.issues.map((i) => i.message).join(", ")}`);
   }
 
-  if (newTier === "human_confirmed" && trustProof.tier !== "human_confirmed") {
+  if (newTier === "human_confirmed" && parsed.data.tier !== "human_confirmed") {
     throw new InvalidTrustProofError("TrustProof tier must match requested tier for human_confirmed upgrade");
   }
 
+  const proof = parsed.data;
+
   if (store.patchTier) {
-    await store.patchTier(memoryId, newTier, trustProof);
+    await store.patchTier(memoryId, newTier, proof);
   } else if (store.patchMetadata) {
     await store.patchMetadata(memoryId, {
       source_tier: newTier,
-      trust_proof: JSON.stringify(trustProof),
+      trust_proof: JSON.stringify(proof),
     });
   } else {
     throw new Error("Store does not support tier upgrade (missing patchTier or patchMetadata)");
@@ -81,7 +85,7 @@ export async function tierUpgrade(
     event_id: randomUUID(),
     memory_id: memoryId,
     operation: "tier_upgrade",
-    principal_id: trustProof.confirmed_by,
+    principal_id: proof.confirmed_by,
     timestamp: now,
     details: `${oldTier} → ${newTier}`,
   });

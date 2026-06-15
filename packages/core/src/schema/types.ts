@@ -16,8 +16,8 @@ export const RecordStatus = z.enum([
 
 export const TrustProofSchema = z.object({
   tier: SourceTier,
-  confirmed_by: z.string(),
-  confirmed_at: z.string(),
+  confirmed_by: z.string().min(1),
+  confirmed_at: z.string().min(1),
   evidence_ids: z.array(z.string()),
   method: z.enum(["human_review", "peer_consensus", "automated_check", "cross_reference"]),
 }).strict();

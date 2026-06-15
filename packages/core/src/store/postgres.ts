@@ -66,7 +66,7 @@ export class PostgresStore implements AmhStore {
       status: row.status,
       agent_id: row.agent_id,
       namespace: row.namespace,
-      memory_type: row.memory_type,
+      memory_type: row.memory_type === "decision" ? "fact" : row.memory_type,
       content: { format: row.content_format, value: row.content_value },
       source: { type: row.source_type, ref: row.source_ref, tier: row.source_tier },
       created_at: row.created_at,
@@ -135,8 +135,12 @@ export class PostgresStore implements AmhStore {
       params.push(filter.namespace);
     }
     if (filter.memory_type) {
-      conditions.push(`memory_type = $${idx++}`);
-      params.push(filter.memory_type);
+      if (filter.memory_type === "fact") {
+        conditions.push(`memory_type IN ('fact', 'decision')`);
+      } else {
+        conditions.push(`memory_type = $${idx++}`);
+        params.push(filter.memory_type);
+      }
     }
     if (filter.agent_id) {
       conditions.push(`agent_id = $${idx++}`);

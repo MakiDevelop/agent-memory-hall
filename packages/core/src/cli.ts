@@ -86,6 +86,7 @@ Usage:
   amh tier-upgrade --id <memory_id> --tier <tier> --by <agent> [--method <method>]
   amh forget --id <memory_id> --by <agent> [--reason <text>]
   amh audit --id <memory_id>
+  amh migrate                 Run DB migrations (decision→fact, content_hash rehash)
   amh status
   amh --help
 
@@ -99,7 +100,7 @@ Global options:
 Write options:
   --agent <id>         Agent ID (required)
   --ns <namespace>     Namespace (required)
-  --type <type>        decision|fact|preference|constraint|lesson|risk
+  --type <type>        fact|preference|constraint|lesson|risk
   --tier <tier>        raw_source|llm_derived|human_confirmed
   --source-ref <ref>   Source reference
 
@@ -112,8 +113,8 @@ Read options:
   --limit <n>          Max results (default 20)
 
 Examples:
-  amh write --agent planner --ns project:acme --type decision "Use PostgreSQL"
-  amh read --ns project:acme --type decision
+  amh write --agent planner --ns project:acme --type fact "Use PostgreSQL"
+  amh read --ns project:acme --type fact
   amh import --from ump ./memory.ump.json
   amh --store postgres --path postgres://amh:amh@localhost:5432/amh serve
 
@@ -380,6 +381,49 @@ async function cmdAudit(args: string[], opts: ServerOptions): Promise<void> {
   console.log(JSON.stringify(events, null, 2));
 }
 
+async function cmdMigrate(args: string[], opts: ServerOptions): Promise<void> {
+  const ctx = await createAmhContext(opts);
+  const store = ctx.store;
+
+  if (!("db" in store) || typeof (store as any).db?.prepare !== "function") {
+    console.error("amh migrate currently supports SQLite only. For Postgres, run the equivalent SQL manually:");
+    console.error("  UPDATE memories SET memory_type = 'fact' WHERE memory_type = 'decision';");
+    process.exit(1);
+  }
+
+  const db = (store as any).db;
+  const { computeContentHash } = await import("./governance/dedup.js");
+  const migrations: string[] = [];
+
+  const txn = db.transaction(() => {
+    const result = db.prepare("UPDATE memories SET memory_type = 'fact' WHERE memory_type = 'decision'").run();
+    if (result.changes > 0) {
+      migrations.push(`decision→fact: ${result.changes} records`);
+    }
+
+    const update = db.prepare("UPDATE memories SET content_hash = ? WHERE memory_id = ?");
+    let rehashed = 0;
+    for (const row of db.prepare("SELECT memory_id, content_format, content_value, content_hash FROM memories").iterate()) {
+      const correct = computeContentHash((row as any).content_format, (row as any).content_value);
+      if ((row as any).content_hash !== correct) {
+        update.run(correct, (row as any).memory_id);
+        rehashed++;
+      }
+    }
+    if (rehashed > 0) {
+      migrations.push(`content_hash rehash: ${rehashed} records`);
+    }
+  });
+
+  txn();
+
+  if (migrations.length === 0) {
+    console.log(JSON.stringify({ status: "up_to_date", migrations: [] }, null, 2));
+  } else {
+    console.log(JSON.stringify({ status: "migrated", migrations }, null, 2));
+  }
+}
+
 async function cmdStatus(opts: ServerOptions): Promise<void> {
   const ctx = await createAmhContext(opts);
   const governance = resolveGovernance(ctx.config);
@@ -449,6 +493,11 @@ if (command === "--help" || command === "-h" || rawArgs.includes("--help") || ra
   });
 } else if (command === "audit") {
   cmdAudit(rest, opts).catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+} else if (command === "migrate") {
+  cmdMigrate(rest, opts).catch((err) => {
     console.error(err);
     process.exit(1);
   });

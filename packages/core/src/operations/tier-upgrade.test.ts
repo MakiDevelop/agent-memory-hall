@@ -123,6 +123,17 @@ describe("tierUpgrade", () => {
     );
   });
 
+  it("rejects structurally invalid TrustProof via Zod", async () => {
+    const store = freshStore();
+    const id = await seedRecord(store, "raw_source");
+    const badProof = { tier: "llm_derived", confirmed_by: "a" } as any;
+
+    await assert.rejects(
+      () => tierUpgrade(id, "llm_derived", badProof, store),
+      InvalidTrustProofError,
+    );
+  });
+
   it("rejects upgrade on non-existent record", async () => {
     const store = freshStore();
 
