@@ -1,5 +1,7 @@
 # Agent Memory Hall
 
+> Reference implementation of [Agent Civilization Architecture](https://github.com/MakiDevelop/agent-civilization-architecture) — Layer 1 (Memory) and Layer 2 (Trust).
+
 > An open interchange protocol for portable, governable, and auditable memory across AI agents.
 
 ## The Problem
@@ -126,6 +128,10 @@ See [packages/core/docs/codex-handoff.md](packages/core/docs/codex-handoff.md) f
 ## Positioning
 
 > **UMP defines the wire. AMH ships the governance.**
+
+## memory-hall (storage engine)
+
+AMH is the **protocol + governance** layer; [memory-hall](https://github.com/MakiDevelop/memory-hall) is the optional **hybrid search backend** (`--store memhall`). They evolve as a pair — see [docs/INTEGRATION.md](docs/INTEGRATION.md) for the adapter contract, known gaps, and release checklist.
 
 ## Related Efforts
 
