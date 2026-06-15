@@ -5,6 +5,7 @@ import { homedir } from "node:os";
 import { join } from "node:path";
 import type { AmhStore } from "./interface.js";
 import type { AmhRecord, AuditEvent, AmhQuery } from "../schema/types.js";
+import { withFileLock } from "./file-lock.js";
 
 interface StoreData {
   records: AmhRecord[];
@@ -38,22 +39,44 @@ export class JsonFileStore implements AmhStore {
     await writeFile(this.filePath!, JSON.stringify(this.data, null, 2), "utf-8");
   }
 
+  private async locked<T>(fn: () => Promise<T>): Promise<T> {
+    return withFileLock(this.filePath!, async () => {
+      this.loaded = false;
+      await this.load();
+      const result = await fn();
+      await this.save();
+      return result;
+    });
+  }
+
   async put(record: AmhRecord): Promise<void> {
-    await this.load();
-    const idx = this.data.records.findIndex(
-      (r) => r.memory_id === record.memory_id
-    );
-    if (idx >= 0) {
-      this.data.records[idx] = record;
-    } else {
-      this.data.records.push(record);
-    }
-    await this.save();
+    await this.locked(async () => {
+      const idx = this.data.records.findIndex(
+        (r) => r.memory_id === record.memory_id
+      );
+      if (idx >= 0) {
+        this.data.records[idx] = record;
+      } else {
+        this.data.records.push(record);
+      }
+    });
   }
 
   async get(memoryId: string): Promise<AmhRecord | null> {
     await this.load();
     return this.data.records.find((r) => r.memory_id === memoryId) ?? null;
+  }
+
+  async findByContentHash(namespace: string, contentHash: string): Promise<AmhRecord | null> {
+    await this.load();
+    return (
+      this.data.records.find(
+        (r) =>
+          r.namespace === namespace &&
+          r.content_hash === contentHash &&
+          r.status === "active"
+      ) ?? null
+    );
   }
 
   async query(filter: AmhQuery): Promise<AmhRecord[]> {
@@ -81,6 +104,9 @@ export class JsonFileStore implements AmhStore {
         (r) => r.content.value.toLowerCase().includes(lower)
       );
     }
+    results = results.sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
     if (filter.limit) {
       results = results.slice(0, filter.limit);
     }
@@ -89,16 +115,13 @@ export class JsonFileStore implements AmhStore {
   }
 
   async delete(memoryId: string): Promise<boolean> {
-    await this.load();
-    const before = this.data.records.length;
-    this.data.records = this.data.records.filter(
-      (r) => r.memory_id !== memoryId
-    );
-    if (this.data.records.length < before) {
-      await this.save();
-      return true;
-    }
-    return false;
+    return this.locked(async () => {
+      const before = this.data.records.length;
+      this.data.records = this.data.records.filter(
+        (r) => r.memory_id !== memoryId
+      );
+      return this.data.records.length < before;
+    });
   }
 
   async list(namespace?: string): Promise<AmhRecord[]> {
@@ -110,9 +133,9 @@ export class JsonFileStore implements AmhStore {
   }
 
   async appendAudit(event: AuditEvent): Promise<void> {
-    await this.load();
-    this.data.audit.push(event);
-    await this.save();
+    await this.locked(async () => {
+      this.data.audit.push(event);
+    });
   }
 
   async getAudit(memoryId: string): Promise<AuditEvent[]> {

@@ -1,0 +1,12 @@
+{
+  "name": "agent-memory-hall",
+  "private": true,
+  "workspaces": [
+    "packages/core"
+  ],
+  "scripts": {
+    "build": "npm run build -w @chibakuma/agent-memory-hall",
+    "check": "npm run check -w @chibakuma/agent-memory-hall",
+    "test": "npm run test -w @chibakuma/agent-memory-hall"
+  }
+}

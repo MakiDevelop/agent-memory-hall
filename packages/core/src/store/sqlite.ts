@@ -118,6 +118,13 @@ export class SqliteStore implements AmhStore {
     return row ? this.toRecord(row) : null;
   }
 
+  async findByContentHash(namespace: string, contentHash: string): Promise<AmhRecord | null> {
+    const row = this.db.prepare(
+      "SELECT * FROM memories WHERE namespace = ? AND content_hash = ? AND status = 'active' LIMIT 1"
+    ).get(namespace, contentHash);
+    return row ? this.toRecord(row) : null;
+  }
+
   async query(filter: AmhQuery): Promise<AmhRecord[]> {
     const conditions: string[] = [];
     const params: any = {};

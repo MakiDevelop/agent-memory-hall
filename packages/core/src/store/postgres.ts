@@ -106,6 +106,15 @@ export class PostgresStore implements AmhStore {
     return rows.length > 0 ? this.toRecord(rows[0]) : null;
   }
 
+  async findByContentHash(namespace: string, contentHash: string): Promise<AmhRecord | null> {
+    await this.ensureMigrated();
+    const { rows } = await this.pool.query(
+      "SELECT * FROM memories WHERE namespace = $1 AND content_hash = $2 AND status = 'active' LIMIT 1",
+      [namespace, contentHash]
+    );
+    return rows.length > 0 ? this.toRecord(rows[0]) : null;
+  }
+
   async query(filter: AmhQuery): Promise<AmhRecord[]> {
     await this.ensureMigrated();
     const conditions: string[] = [];

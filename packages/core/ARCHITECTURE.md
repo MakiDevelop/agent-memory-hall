@@ -1,11 +1,11 @@
-# @agent-memory-hall/core — Architecture
+# @chibakuma/agent-memory-hall — Architecture
 
 ## Overview
 
-MCP-native memory server with built-in governance. One command to start:
+MCP-native memory server with built-in governance.
 
 ```bash
-npx agent-memory-hall
+npx @chibakuma/agent-memory-hall
 ```
 
 ## Module Structure
@@ -13,119 +13,64 @@ npx agent-memory-hall
 ```
 src/
 ├── schema/
-│   ├── types.ts          # AMH record type definitions
-│   └── validate.ts       # JSON Schema validation
+│   ├── types.ts          # AMH record type definitions (Zod)
+│   └── validate.ts       # Record validation helpers
+├── config.ts             # ~/.amh/config.json loader
+├── version.ts            # Single source version from package.json
 ├── operations/
-│   ├── write.ts          # Create/update memory records
-│   ├── read.ts           # Query by ID, namespace, type, agent
-│   ├── transfer.ts       # Cross-agent memory transfer with provenance chain
+│   ├── write.ts          # Create memory + governance + audit
+│   ├── read.ts           # Query with namespace isolation + lifecycle filter
+│   ├── transfer.ts       # Cross-agent transfer through write-gate
 │   └── audit.ts          # Append-only event log
 ├── governance/
-│   ├── source-tier.ts    # raw_source / llm_derived / human_confirmed
-│   ├── write-gate.ts     # Configurable pre-write checks
-│   ├── dedup.ts          # content_hash deduplication
-│   └── namespace.ts      # Namespace isolation enforcement
+│   ├── source-tier.ts    # Anti-Ouroboros on supersede chains
+│   ├── write-gate.ts     # Pre-write checks (wired)
+│   ├── dedup.ts          # BLAKE3 content_hash dedup
+│   ├── namespace.ts      # Namespace isolation (wired on read/write)
+│   └── lifecycle.ts      # valid_until / expired filtering
 ├── store/
 │   ├── interface.ts      # Store adapter interface
-│   ├── json-file.ts      # Default: ~/.amh/memory.json
-│   └── sqlite.ts         # SQLite adapter (optional)
+│   ├── factory.ts        # createStore() from config/CLI
+│   ├── json-file.ts      # JSON store with file lock
+│   ├── sqlite.ts         # Default: ~/.amh/memory.db
+│   ├── postgres.ts       # Multi-agent shared store
+│   └── memhall.ts        # memhall API adapter
 ├── mcp/
-│   ├── server.ts         # MCP server (amh.write / amh.read / amh.transfer / amh.audit)
-│   └── resources.ts      # MCP resource exposure (amh://{namespace}/{id})
+│   ├── server.ts         # MCP tools
+│   └── resources.ts      # amh://{namespace}/{memory_id}
 ├── import/
-│   ├── ump.ts            # Import from UMP format (*.ump.json)
-│   └── mem0.ts           # Import from Mem0 export
-└── index.ts              # Public API
+│   ├── ump.ts            # UMP import/export
+│   └── mem0.ts           # Mem0 import
+└── cli.ts                # serve | write | read | import | audit | status
 ```
 
-## AMH Record Schema (v0.1)
+## Governance Layer
 
-```typescript
-interface AmhRecord {
-  amh_version: "0.1";
-  memory_id: string;
-  version: number;
-  status: "active" | "superseded" | "revoked" | "expired";
-  agent_id: string;
-  namespace: string;
-  memory_type: "decision" | "fact" | "preference" | "constraint" | "lesson" | "risk";
-  content: {
-    format: string;  // MIME type
-    value: string;
-  };
-  source: {
-    type: "human" | "agent" | "system" | "document";
-    ref: string;
-    tier: "raw_source" | "llm_derived" | "human_confirmed";
-  };
-  created_at: string;  // ISO 8601
-  created_by: string;
-  // v0.1 additions from UMP lessons
-  valid_until?: string;   // ISO 8601 — when this fact stops being true
-  supersedes?: string;    // memory_id of record this replaces
-  content_hash?: string;  // BLAKE3 for dedup
-}
-```
+### source_tier + anti-Ouroboros
+`llm_derived` cannot supersede another `llm_derived` memory.
 
-## Governance Layer (the differentiator)
+### write-gate (default on)
+- Namespace isolation when `caller_namespace` set
+- Anti-Ouroboros check
+- BLAKE3 `content_hash`
+- Per-namespace dedup via indexed hash lookup
 
-### source_tier
-Every memory has a trust level:
-- `raw_source` — direct observation or raw data
-- `llm_derived` — LLM generated/summarized
-- `human_confirmed` — human verified
-
-Rule: `llm_derived` memories cannot be fed back into consolidation (anti-Ouroboros).
-
-### write-gate
-Configurable checks before any write:
-- Dedup check (content_hash)
-- Namespace permission check
-- Source tier validation
-- Optional custom gates (user-defined)
-
-### namespace isolation
-Memories in different namespaces are isolated by default.
-Cross-namespace reads require explicit permission.
-
-## MCP Tools
-
-| Tool | Description |
-|------|-------------|
-| `amh_write` | Write a memory record. Returns memory_id + version. |
-| `amh_read` | Query memories by ID, namespace, type, agent, or text search. |
-| `amh_transfer` | Transfer memory to another namespace/agent with provenance. |
-| `amh_audit` | Get append-only event log for a memory record. |
-| `amh_status` | Server status: record count, namespaces, store info. |
-
-## MCP Resources
-
-Memories exposed as MCP resources at `amh://{namespace}/{memory_id}`.
-Browsable by namespace.
+### lifecycle
+Read paths filter records past `valid_until` unless `include_expired=true`.
 
 ## Configuration
 
-```json
-// ~/.amh/config.json
-{
-  "store": "json-file",
-  "store_path": "~/.amh/memory.json",
-  "governance": {
-    "dedup": true,
-    "anti_ouroboros": true,
-    "namespace_isolation": true,
-    "write_gate": true
-  }
-}
-```
+`~/.amh/config.json` — see root README.
+
+CLI override: `--caller-ns project:acme`
 
 ## CLI
 
 ```bash
-amh write --type decision --agent planner --ns project:acme "Use PostgreSQL"
+amh write --agent planner --ns project:acme --type decision "Use PostgreSQL"
 amh read --ns project:acme --type decision
 amh import --from ump ./memory.ump.json
-amh import --from mem0 ./mem0-export.json
+amh audit --id <memory_id>
 amh status
-amh serve  # Start MCP server
+amh serve
 ```

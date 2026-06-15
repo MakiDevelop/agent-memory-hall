@@ -1,6 +1,6 @@
 {
   "name": "@chibakuma/agent-memory-hall",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "MCP-native memory server with built-in governance for AI agents",
   "type": "module",
   "main": "dist/index.js",
@@ -18,7 +18,9 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node dist/mcp/server.js",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "test": "npm run build && node --test dist/**/*.test.js",
+    "prepublishOnly": "npm run check && npm run build"
   },
   "keywords": [
     "agent",
@@ -40,6 +42,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
+    "@noble/hashes": "^1.8.0",
     "better-sqlite3": "^12.10.1",
     "pg": "^8.21.0",
     "zod": "^3.24.0"

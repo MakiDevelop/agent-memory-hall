@@ -8,37 +8,11 @@ AI agents can call tools (MCP), talk to each other (A2A), and be authorized (Age
 
 Every agent framework invents its own memory — Mem0, Zep, Letta, LangChain Memory, custom vector stores. None of them can talk to each other. When you switch frameworks, your agent's memory starts from zero.
 
-Today, most agent memory suffers from four unknowns:
-
-- **Who wrote it?** No provenance.
-- **Can it be trusted?** No verification chain.
-- **When should it be forgotten?** No lifecycle.
-- **Can another agent read it?** No portability.
-
-Agent Memory Hall fills this gap.
-
 ## What AMH Is — and What It Is Not
 
 **AMH is an interchange and audit protocol.** It defines how memory records are represented, transferred, expired, and audited across agents, tools, teams, and runtimes.
 
-AMH does **not**:
-
-- Replace your vector database or memory store
-- Define how agents decide what to remember
-- Specify embedding formats or search algorithms
-- Compete with MCP, A2A, or identity protocols
-- Require any specific runtime or framework
-
-Think of it this way: MCP doesn't tell you which tools to build. AMH doesn't tell you what to remember. It tells you how to **write it down so others can read it**.
-
-## Positioning
-
-| Layer | Protocol | What it standardizes |
-|-------|----------|---------------------|
-| Tools | MCP | How agents connect to tools and data |
-| Communication | A2A | How agents talk to each other |
-| Identity | AIP / DID | How agents are identified and authorized |
-| **Memory** | **AMH** | **How agents remember, forget, and share knowledge** |
+AMH does **not** replace your vector database, decide what to remember, or specify embedding formats. Think of it this way: MCP doesn't tell you which tools to build. AMH doesn't tell you what to remember. It tells you how to **write it down so others can read it**.
 
 ## Core Schema (v0.1 — minimal)
 
@@ -57,46 +31,25 @@ Think of it this way: MCP doesn't tell you which tools to build. AMH doesn't tel
   },
   "source": {
     "type": "agent",
-    "ref": "session:2026-06-15-arch-review"
+    "ref": "session:2026-06-15-arch-review",
+    "tier": "llm_derived"
   },
   "created_at": "2026-06-15T09:30:00Z",
   "created_by": "planner-agent"
 }
 ```
 
-**That's it for v0.1.** Optional extensions (confidence, retention policies, visibility, full audit log) are defined separately — they are not required for a conforming implementation.
-
-## Operations (v0.1)
-
-| Operation | Description |
-|-----------|-------------|
-| `write` | Create or update a memory record |
-| `read` | Retrieve by ID, filter by namespace/type/agent |
-| `transfer` | Move memory between agents with provenance chain preservation |
-| `audit` | Append-only event log of all operations on a record |
-
-## Origin Story
-
-This protocol is informed by operational experience running **memhall** — a multi-agent memory system serving a 7-agent council (Claude, Codex, Gemini, Grok, gemma4, Perplexity Max, SuperGrok) across 60+ collaborative sessions. The lessons learned from content_hash dedup, namespace isolation, concurrent write conflicts, and a full memory system migration (mem0 → memhall) directly shaped AMH's design decisions.
-
-## Academic Foundations
-
-AMH builds on established research:
-
-- **Park et al. 2023** — Memory Stream + Reflection architecture (2000+ citations)
-- **Hu et al. 2025** — Forms × Functions × Dynamics taxonomy (arXiv:2512.13564)
-- **Jiang et al. 2026** — Four-structure empirical analysis + Context Saturation Gap (arXiv:2602.19320)
-- **Metadata**: Dublin Core vocabulary + W3C Verifiable Credentials v2.0 for provenance
-
 ## Quick Start
 
 ```bash
 # Start AMH as an MCP server (Claude Desktop / Cursor / Codex)
-npx agent-memory-hall
+npx @chibakuma/agent-memory-hall
 
-# Or install globally
-npm install -g @agent-memory-hall/core
-amh serve
+# CLI examples
+npx @chibakuma/agent-memory-hall write --agent planner --ns project:acme --type decision "Use PostgreSQL"
+npx @chibakuma/agent-memory-hall read --ns project:acme
+npx @chibakuma/agent-memory-hall import --from ump ./memory.ump.json
+npx @chibakuma/agent-memory-hall status
 ```
 
 Add to your MCP client config:
@@ -106,52 +59,76 @@ Add to your MCP client config:
   "mcpServers": {
     "agent-memory-hall": {
       "command": "npx",
-      "args": ["agent-memory-hall"]
+      "args": ["@chibakuma/agent-memory-hall"]
     }
   }
 }
 ```
 
-## Built-in Governance (What Makes AMH Different)
+### Configuration (`~/.amh/config.json`)
 
-Most memory tools store and retrieve. AMH **governs**.
+```json
+{
+  "store": "sqlite",
+  "store_path": "~/.amh/memory.db",
+  "caller_namespace": "project:acme",
+  "governance": {
+    "dedup": true,
+    "anti_ouroboros": true,
+    "namespace_isolation": true,
+    "write_gate": true
+  }
+}
+```
 
-| Feature | What it does | Why it matters |
-|---------|-------------|----------------|
-| **source_tier** | Tags every memory as `raw_source` / `llm_derived` / `human_confirmed` | Prevents the Ouroboros problem (LLM-derived memory fed back as ground truth) |
-| **write-gate** | Configurable checks before any write | Blocks duplicates, enforces namespace rules, validates source |
-| **content_hash dedup** | BLAKE3 hash of content, auto-rejects duplicates | Memory doesn't bloat over time |
-| **namespace isolation** | Memories in different namespaces are isolated by default | Agent A can't accidentally read Agent B's private context |
+### Multi-agent (Docker + PostgreSQL)
 
-These aren't optional add-ons. They're defaults. Turn them off if you want, but they're on from day one — because we learned the hard way that ungoverned memory degrades fast.
+```bash
+docker compose up -d
+npx @chibakuma/agent-memory-hall --store postgres --path postgres://amh:amh@localhost:5432/amh
+```
+
+## Built-in Governance
+
+| Feature | What it does |
+|---------|-------------|
+| **source_tier** | `raw_source` / `llm_derived` / `human_confirmed` — anti-Ouroboros |
+| **write-gate** | Pre-write checks: dedup, namespace, source tier |
+| **content_hash dedup** | BLAKE3 hash; rejects duplicate active content per namespace |
+| **namespace isolation** | Scoped read/write when `caller_namespace` is set |
+| **lifecycle** | `valid_until` records filtered on read by default |
+
+## MCP Tools & Resources
+
+| Tool | Description |
+|------|-------------|
+| `amh_write` | Write with governance; returns `governance_applied` |
+| `amh_read` | Query by ID/filters; expired records filtered by default |
+| `amh_transfer` | Cross-namespace transfer with provenance |
+| `amh_audit` | Append-only event log |
+| `amh_status` | Version, counts, governance config |
+
+Resources: `amh://{namespace}/{memory_id}`
 
 ## Status
 
-**Phase: Reference Implementation** (Week 1-2)
+**v0.5.0 — Reference Implementation (dogfooding)**
 
-## Roadmap
-
-| Week | Deliverable |
-|------|------------|
-| 1-2 | `@agent-memory-hall/core` — MCP server + CLI + JSON store + governance |
-| 3-4 | Whitepaper v1 + UMP/Mem0 import adapters |
-| 5-6 | LoCoMo benchmark (Hindsight AMB framework, public judge prompt) |
-| 7-8 | SQLite store + Letta adapter + MCP resource exposure |
-| 9-10 | Case study: *How a multi-agent dev team avoids collective amnesia* |
-| 11-12 | Public launch: npm publish + GitHub public + blog + HN |
+- npm: `@chibakuma/agent-memory-hall`
+- Stores: SQLite (default) / PostgreSQL / JSON / memhall
+- Import: UMP, Mem0
+- CI: typecheck + unit tests
 
 ## Positioning
 
 > **UMP defines the wire. AMH ships the governance.**
 
-AMH is compatible with UMP format (import/export). You don't have to choose. But when you use AMH's MCP server, you get source_tier, write gates, dedup, and namespace isolation out of the box — features born from running a 7-agent memory system across 60+ real sessions.
-
 ## Related Efforts
 
-- **UMP (Universal Memory Protocol)** — transport-neutral wire format with MCP binding. AMH can import/export UMP records. We focus on governance; they focus on format.
-- **W3C AI Agent Memory Interoperability CG** (est. 2026-06-03) — encryption envelopes, post-quantum identity, audit anchors. Complementary to AMH's semantic + governance layer.
-- **Letta Context Repositories** — git-based memory for coding agents. Validates markdown + git approach; AMH makes it portable across frameworks.
-- **Mem0 / Zep / Cognee** — framework-specific memory stores. AMH provides a governance layer that can sit on top of any of them.
+- **UMP** — transport-neutral wire format; AMH imports/exports UMP records
+- **W3C AI Agent Memory Interoperability CG** — encryption, identity, audit anchors
+- **Letta Context Repositories** — git-based memory for coding agents
+- **Mem0 / Zep / Cognee** — framework stores; AMH adds governance on top
 
 ## License
 

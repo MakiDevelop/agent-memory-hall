@@ -1,4 +1,5 @@
-import { createHash } from "node:crypto";
+import { blake3 } from "@noble/hashes/blake3";
+import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils";
 import type { AmhRecord } from "../schema/types.js";
 import type { AmhStore } from "../store/interface.js";
 
@@ -10,7 +11,7 @@ export class DuplicateMemoryError extends Error {
 }
 
 export function computeContentHash(value: string): string {
-  return createHash("sha256").update(value, "utf-8").digest("hex");
+  return bytesToHex(blake3(utf8ToBytes(value)));
 }
 
 export async function checkDedup(
@@ -18,14 +19,8 @@ export async function checkDedup(
   store: AmhStore
 ): Promise<void> {
   const hash = computeContentHash(record.content.value);
-  const existing = await store.query({ namespace: record.namespace });
-  const dup = existing.find(
-    (r) =>
-      r.content_hash === hash &&
-      r.memory_id !== record.memory_id &&
-      r.status === "active"
-  );
-  if (dup) {
+  const dup = await store.findByContentHash(record.namespace, hash);
+  if (dup && dup.memory_id !== record.memory_id && dup.status === "active") {
     throw new DuplicateMemoryError(dup.memory_id);
   }
 }

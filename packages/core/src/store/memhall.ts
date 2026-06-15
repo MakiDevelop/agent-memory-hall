@@ -1,5 +1,6 @@
 import type { AmhStore } from "./interface.js";
 import type { AmhRecord, AuditEvent, AmhQuery } from "../schema/types.js";
+import { computeContentHash } from "../governance/dedup.js";
 
 interface MemhallWriteResponse {
   entry_id: string;
@@ -30,6 +31,7 @@ interface MemhallSearchResult {
     entry: MemhallEntry;
     score?: number;
   }>;
+  total?: number;
 }
 
 function entryToAmh(entry: MemhallEntry): AmhRecord {
@@ -81,6 +83,9 @@ export class MemhallStore implements AmhStore {
   private localAudit: AuditEvent[] = [];
 
   constructor(baseUrl: string, token: string) {
+    if (!baseUrl) {
+      throw new Error("Memhall store requires --path with the memhall API URL");
+    }
     this.baseUrl = baseUrl.replace(/\/$/, "");
     this.token = token;
   }
@@ -140,6 +145,19 @@ export class MemhallStore implements AmhStore {
     }
   }
 
+  async findByContentHash(namespace: string, contentHash: string): Promise<AmhRecord | null> {
+    const result = await this.api<MemhallSearchResult>("POST", "/v1/memory/search", {
+      mode: "hybrid",
+      namespace,
+      query: namespace,
+      limit: 50,
+    });
+    const match = result.results.find(
+      (r) => r.entry.content_hash === contentHash && r.entry.namespace === namespace
+    );
+    return match ? entryToAmh(match.entry) : null;
+  }
+
   async query(filter: AmhQuery): Promise<AmhRecord[]> {
     const searchBody: Record<string, unknown> = {
       mode: "hybrid",
@@ -175,6 +193,9 @@ export class MemhallStore implements AmhStore {
     if (filter.status) {
       records = records.filter((r) => r.status === filter.status);
     }
+    if (filter.memory_id) {
+      records = records.filter((r) => r.memory_id === filter.memory_id);
+    }
 
     return records;
   }
@@ -196,12 +217,20 @@ export class MemhallStore implements AmhStore {
   }
 
   async count(): Promise<number> {
-    const results = await this.query({ limit: 1 });
-    return results.length;
+    const result = await this.api<MemhallSearchResult>("POST", "/v1/memory/search", {
+      mode: "hybrid",
+      query: "*",
+      limit: 1,
+    });
+    if (typeof result.total === "number") {
+      return result.total;
+    }
+    const all = await this.query({ limit: 500 });
+    return all.length;
   }
 
   async namespaces(): Promise<string[]> {
-    const results = await this.query({ limit: 100 });
+    const results = await this.query({ limit: 500 });
     return [...new Set(results.map((r) => r.namespace))];
   }
 }

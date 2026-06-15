@@ -1,58 +1,61 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { JsonFileStore } from "../store/json-file.js";
-import { SqliteStore } from "../store/sqlite.js";
-import { PostgresStore } from "../store/postgres.js";
-import { MemhallStore } from "../store/memhall.js";
 import type { AmhStore } from "../store/interface.js";
+import { createStore, storeOptionsFromConfig, type StoreOptions } from "../store/factory.js";
+import { loadConfig, resolveGovernance, type AmhConfig } from "../config.js";
+import { AMH_VERSION } from "../version.js";
 import { writeMemory } from "../operations/write.js";
 import { readMemory, queryMemories } from "../operations/read.js";
 import { transferMemory } from "../operations/transfer.js";
 import { getAuditLog } from "../operations/audit.js";
+import { registerAmhResources } from "./resources.js";
 
-export interface ServerOptions {
-  storePath?: string;
-  storeType?: "json" | "sqlite" | "postgres" | "memhall";
-  memhallToken?: string;
+export interface ServerOptions extends StoreOptions {
+  configPath?: string;
+  callerNamespace?: string;
 }
 
-function createStore(opts: ServerOptions): AmhStore {
-  const type = opts.storeType ?? "sqlite";
-  if (type === "memhall") {
-    const url = opts.storePath ?? "http://100.89.41.50:9100";
-    const token = opts.memhallToken ?? process.env.MH_API_TOKEN ?? "";
-    if (!token) {
-      throw new Error("Memhall store requires MH_API_TOKEN env var or --token flag");
-    }
-    return new MemhallStore(url, token);
-  }
-  if (type === "postgres") {
-    if (!opts.storePath) {
-      throw new Error("Postgres store requires --path with a connection string (e.g. postgres://user:pass@localhost:5432/amh)");
-    }
-    return new PostgresStore(opts.storePath);
-  }
-  if (type === "sqlite") {
-    return new SqliteStore(opts.storePath);
-  }
-  return new JsonFileStore(opts.storePath);
+export interface AmhServerContext {
+  store: AmhStore;
+  config: AmhConfig;
+  governance: ReturnType<typeof resolveGovernance>;
+  callerNamespace?: string;
 }
 
-export function createAmhServer(optsOrPath?: string | ServerOptions) {
-  const opts: ServerOptions = typeof optsOrPath === "string"
-    ? { storePath: optsOrPath }
-    : optsOrPath ?? {};
-  const store = createStore(opts);
+export async function createAmhContext(opts: ServerOptions = {}): Promise<AmhServerContext> {
+  const config = await loadConfig(opts.configPath);
+  const store = createStore(storeOptionsFromConfig(config, opts));
+  const governance = resolveGovernance(config);
+  const callerNamespace = opts.callerNamespace ?? config.caller_namespace;
+  return { store, config, governance, callerNamespace };
+}
+
+export function createAmhServer(context: AmhServerContext) {
+  const { store, governance, callerNamespace } = context;
 
   const server = new McpServer({
     name: "agent-memory-hall",
-    version: "0.1.0",
+    version: AMH_VERSION,
   });
+
+  const readCtx = {
+    callerNamespace,
+    namespaceIsolation: governance.namespaceIsolation,
+  };
+
+  const gateConfig = {
+    dedup: governance.dedup,
+    antiOuroboros: governance.antiOuroboros,
+    namespaceIsolation: governance.namespaceIsolation,
+    writeGate: governance.writeGate,
+  };
+
+  registerAmhResources(server, store, readCtx);
 
   server.tool(
     "amh_write",
-    "Write a memory record with governance checks (dedup, source tier, anti-Ouroboros)",
+    "Write a memory record with governance checks (dedup, source tier, anti-Ouroboros, namespace isolation)",
     {
       agent_id: z.string().describe("ID of the agent writing the memory"),
       namespace: z.string().describe("Memory namespace (e.g. project:acme)"),
@@ -78,7 +81,9 @@ export function createAmhServer(optsOrPath?: string | ServerOptions) {
             valid_until: params.valid_until,
             supersedes: params.supersedes,
           },
-          store
+          store,
+          gateConfig,
+          { callerNamespace }
         );
         return {
           content: [
@@ -93,7 +98,14 @@ export function createAmhServer(optsOrPath?: string | ServerOptions) {
           content: [
             {
               type: "text" as const,
-              text: `Error: ${err instanceof Error ? err.message : String(err)}`,
+              text: JSON.stringify(
+                {
+                  error: err instanceof Error ? err.message : String(err),
+                  error_type: err instanceof Error ? err.name : "Error",
+                },
+                null,
+                2
+              ),
             },
           ],
           isError: true,
@@ -104,7 +116,7 @@ export function createAmhServer(optsOrPath?: string | ServerOptions) {
 
   server.tool(
     "amh_read",
-    "Query memories by ID, namespace, type, or agent",
+    "Query memories by ID, namespace, type, or agent (expired records filtered by default)",
     {
       memory_id: z.string().optional().describe("Specific memory ID to fetch"),
       namespace: z.string().optional().describe("Filter by namespace"),
@@ -112,10 +124,16 @@ export function createAmhServer(optsOrPath?: string | ServerOptions) {
       agent_id: z.string().optional().describe("Filter by agent"),
       text: z.string().optional().describe("Text search in content"),
       limit: z.number().optional().default(20),
+      include_expired: z.boolean().optional().default(false),
     },
     async (params) => {
+      const ctx = {
+        ...readCtx,
+        filterExpired: !params.include_expired,
+      };
+
       if (params.memory_id) {
-        const record = await readMemory(params.memory_id, store);
+        const record = await readMemory(params.memory_id, store, ctx);
         return {
           content: [
             {
@@ -133,7 +151,8 @@ export function createAmhServer(optsOrPath?: string | ServerOptions) {
           text: params.text,
           limit: params.limit,
         },
-        store
+        store,
+        ctx
       );
       return {
         content: [
@@ -157,7 +176,17 @@ export function createAmhServer(optsOrPath?: string | ServerOptions) {
     },
     async (params) => {
       try {
-        const result = await transferMemory(params, store);
+        const result = await transferMemory(
+          {
+            memory_id: params.memory_id,
+            target_namespace: params.target_namespace,
+            target_agent: params.target_agent,
+            transferred_by: params.transferred_by,
+          },
+          store,
+          gateConfig,
+          { callerNamespace }
+        );
         return {
           content: [
             {
@@ -171,7 +200,14 @@ export function createAmhServer(optsOrPath?: string | ServerOptions) {
           content: [
             {
               type: "text" as const,
-              text: `Error: ${err instanceof Error ? err.message : String(err)}`,
+              text: JSON.stringify(
+                {
+                  error: err instanceof Error ? err.message : String(err),
+                  error_type: err instanceof Error ? err.name : "Error",
+                },
+                null,
+                2
+              ),
             },
           ],
           isError: true,
@@ -187,6 +223,17 @@ export function createAmhServer(optsOrPath?: string | ServerOptions) {
       memory_id: z.string().describe("Memory ID to audit"),
     },
     async (params) => {
+      const record = await readMemory(params.memory_id, store, readCtx);
+      if (!record) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify([], null, 2),
+            },
+          ],
+        };
+      }
       const events = await getAuditLog(params.memory_id, store);
       return {
         content: [
@@ -201,7 +248,7 @@ export function createAmhServer(optsOrPath?: string | ServerOptions) {
 
   server.tool(
     "amh_status",
-    "Get AMH server status: record count, namespaces, store info",
+    "Get AMH server status: record count, namespaces, store info, governance config",
     {},
     async () => {
       const recordCount = await store.count();
@@ -212,13 +259,15 @@ export function createAmhServer(optsOrPath?: string | ServerOptions) {
             type: "text" as const,
             text: JSON.stringify(
               {
-                version: "0.1.0",
+                version: AMH_VERSION,
                 records: recordCount,
                 namespaces: ns,
+                caller_namespace: callerNamespace ?? null,
                 governance: {
-                  dedup: true,
-                  anti_ouroboros: true,
-                  namespace_isolation: true,
+                  dedup: governance.dedup,
+                  anti_ouroboros: governance.antiOuroboros,
+                  namespace_isolation: governance.namespaceIsolation,
+                  write_gate: governance.writeGate,
                 },
               },
               null,
@@ -233,8 +282,9 @@ export function createAmhServer(optsOrPath?: string | ServerOptions) {
   return server;
 }
 
-export async function startServer(opts?: string | ServerOptions): Promise<void> {
-  const server = createAmhServer(opts);
+export async function startServer(opts?: ServerOptions): Promise<void> {
+  const context = await createAmhContext(opts);
+  const server = createAmhServer(context);
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }

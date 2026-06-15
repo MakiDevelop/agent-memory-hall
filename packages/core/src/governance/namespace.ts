@@ -10,12 +10,16 @@ export class NamespaceViolationError extends Error {
 }
 
 export function enforceNamespaceIsolation(
-  agentNamespace: string | undefined,
+  callerNamespace: string | undefined,
   query: AmhQuery,
   allowCrossNamespace = false
-): void {
-  if (allowCrossNamespace || !agentNamespace) return;
-  if (query.namespace && query.namespace !== agentNamespace) {
-    throw new NamespaceViolationError(agentNamespace, query.namespace);
+): AmhQuery {
+  if (allowCrossNamespace || !callerNamespace) return query;
+  if (query.namespace && query.namespace !== callerNamespace) {
+    throw new NamespaceViolationError(callerNamespace, query.namespace);
   }
+  if (!query.namespace) {
+    return { ...query, namespace: callerNamespace };
+  }
+  return query;
 }

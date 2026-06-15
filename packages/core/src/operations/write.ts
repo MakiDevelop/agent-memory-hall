@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { AmhRecordSchema, type AmhRecord, type AuditEvent } from "../schema/types.js";
 import type { AmhStore } from "../store/interface.js";
-import { runWriteGate, type WriteGateConfig } from "../governance/write-gate.js";
+import { runWriteGate, type WriteGateConfig, type WriteGateContext } from "../governance/write-gate.js";
 
 export interface WriteInput {
   agent_id: string;
@@ -14,17 +14,20 @@ export interface WriteInput {
   source_tier: AmhRecord["source"]["tier"];
   valid_until?: string;
   supersedes?: string;
+  caller_namespace?: string;
 }
 
 export interface WriteResult {
   memory_id: string;
   version: number;
+  governance_applied: string[];
 }
 
 export async function writeMemory(
   input: WriteInput,
   store: AmhStore,
-  gateConfig?: Partial<WriteGateConfig>
+  gateConfig?: Partial<WriteGateConfig>,
+  gateContext?: WriteGateContext
 ): Promise<WriteResult> {
   const memoryId = randomUUID();
   const now = new Date().toISOString();
@@ -54,13 +57,33 @@ export async function writeMemory(
 
   AmhRecordSchema.parse(record);
 
-  record = await runWriteGate(record, store, gateConfig);
+  const context: WriteGateContext = {
+    callerNamespace: gateContext?.callerNamespace ?? input.caller_namespace,
+    ...gateContext,
+  };
+
+  const { record: gated, governanceApplied } = await runWriteGate(
+    record,
+    store,
+    gateConfig,
+    context
+  );
+  record = gated;
 
   if (input.supersedes) {
     const parent = await store.get(input.supersedes);
     if (parent) {
       parent.status = "superseded";
       await store.put(parent);
+      const supersedeAudit: AuditEvent = {
+        event_id: randomUUID(),
+        memory_id: input.supersedes,
+        operation: "supersede",
+        agent_id: input.agent_id,
+        timestamp: now,
+        details: `Superseded by ${memoryId}`,
+      };
+      await store.appendAudit(supersedeAudit);
     }
   }
 
@@ -76,5 +99,5 @@ export async function writeMemory(
   };
   await store.appendAudit(auditEvent);
 
-  return { memory_id: memoryId, version: 1 };
+  return { memory_id: memoryId, version: 1, governance_applied: governanceApplied };
 }
