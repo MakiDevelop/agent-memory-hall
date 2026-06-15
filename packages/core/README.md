@@ -200,9 +200,19 @@ AMH is the reference implementation of [ACA](https://github.com/MakiDevelop/agen
 - Stores: SQLite (default) / PostgreSQL / JSON / memhall
 - Import: UMP, Mem0
 
+## ACA Ecosystem
+
+AMH is part of the [Agent Civilization Architecture](https://github.com/MakiDevelop/agent-civilization-architecture) ecosystem:
+
+| Package | Purpose | npm |
+|---|---|---|
+| **[ACA Spec](https://github.com/MakiDevelop/agent-civilization-architecture)** | Protocol specification (5 layers + governance plane + 34 conformance tests) | — |
+| **Agent Memory Hall** (this package) | Reference implementation of ACA Layers 1-3 | `@chibakuma/agent-memory-hall` |
+| **[aca-govern](https://github.com/MakiDevelop/aca-govern)** | MCP governance proxy — add audit + policy to any MCP server | `@chibakuma/aca-govern` |
+| **[aca-types](https://github.com/MakiDevelop/aca-types)** | TypeScript type definitions for the ACA protocol | `@chibakuma/aca-types` |
+
 ## Related Efforts
 
-- **[ACA](https://github.com/MakiDevelop/agent-civilization-architecture)** — the protocol spec that AMH implements
 - **UMP** — transport-neutral wire format; AMH imports/exports UMP records
 - **W3C AI Agent Memory Interoperability CG** — encryption, identity, audit anchors
 - **Letta Context Repositories** — git-based memory for coding agents
