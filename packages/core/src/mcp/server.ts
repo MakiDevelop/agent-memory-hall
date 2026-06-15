@@ -2,13 +2,31 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { JsonFileStore } from "../store/json-file.js";
+import { SqliteStore } from "../store/sqlite.js";
+import type { AmhStore } from "../store/interface.js";
 import { writeMemory } from "../operations/write.js";
 import { readMemory, queryMemories } from "../operations/read.js";
 import { transferMemory } from "../operations/transfer.js";
 import { getAuditLog } from "../operations/audit.js";
 
-export function createAmhServer(storePath?: string) {
-  const store = new JsonFileStore(storePath);
+export interface ServerOptions {
+  storePath?: string;
+  storeType?: "json" | "sqlite";
+}
+
+function createStore(opts: ServerOptions): AmhStore {
+  const type = opts.storeType ?? "sqlite";
+  if (type === "sqlite") {
+    return new SqliteStore(opts.storePath);
+  }
+  return new JsonFileStore(opts.storePath);
+}
+
+export function createAmhServer(optsOrPath?: string | ServerOptions) {
+  const opts: ServerOptions = typeof optsOrPath === "string"
+    ? { storePath: optsOrPath }
+    : optsOrPath ?? {};
+  const store = createStore(opts);
 
   const server = new McpServer({
     name: "agent-memory-hall",
@@ -198,8 +216,8 @@ export function createAmhServer(storePath?: string) {
   return server;
 }
 
-export async function startServer(storePath?: string): Promise<void> {
-  const server = createAmhServer(storePath);
+export async function startServer(opts?: string | ServerOptions): Promise<void> {
+  const server = createAmhServer(opts);
   const transport = new StdioServerTransport();
   await server.connect(transport);
 }

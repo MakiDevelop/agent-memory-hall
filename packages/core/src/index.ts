@@ -2,6 +2,7 @@ export { AmhRecordSchema, MemoryType, SourceType, SourceTier, RecordStatus } fro
 export type { AmhRecord, AuditEvent, AmhQuery } from "./schema/types.js";
 export type { AmhStore } from "./store/interface.js";
 export { JsonFileStore } from "./store/json-file.js";
+export { SqliteStore } from "./store/sqlite.js";
 export { writeMemory } from "./operations/write.js";
 export type { WriteInput, WriteResult } from "./operations/write.js";
 export { readMemory, queryMemories } from "./operations/read.js";
