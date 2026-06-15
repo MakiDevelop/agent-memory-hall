@@ -122,7 +122,7 @@ Local CLI dogfooding for Codex (no memhall HTTP / no bearer token):
 
 ## Status
 
-**v0.5.2 — Reference Implementation (dogfooding)**
+**v0.5.3 — Reference Implementation (dogfooding)**
 
 - npm: `@chibakuma/agent-memory-hall`
 - Stores: SQLite (default) / PostgreSQL / JSON / memhall
