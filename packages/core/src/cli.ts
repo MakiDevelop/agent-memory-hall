@@ -345,6 +345,8 @@ const { command, rest, opts } = parseGlobalOpts(rawArgs);
 
 if (command === "--help" || command === "-h" || rawArgs.includes("--help") || rawArgs.includes("-h")) {
   printHelp();
+} else if (command === "--version" || command === "-v" || rawArgs.includes("--version") || rawArgs.includes("-v")) {
+  console.log(AMH_VERSION);
 } else if (command === "serve" || command.startsWith("--")) {
   startServer(opts).catch((err) => {
     console.error("AMH server error:", err);

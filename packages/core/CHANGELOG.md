@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.1 — 2026-06-15
+
+### Fixed
+- `dist/cli.js` executable bit set in build (`chmod +x`) — fixes workspace `Permission denied` on bin symlink
+- CLI `--version` / `-v` flag
+
 ## 0.6.0 — 2026-06-15
 
 ### Added

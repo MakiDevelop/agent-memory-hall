@@ -1,6 +1,6 @@
 {
   "name": "@chibakuma/agent-memory-hall",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "MCP-native memory server with built-in governance for AI agents",
   "type": "module",
   "main": "dist/index.js",
@@ -17,7 +17,7 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "rm -rf dist && tsc -p tsconfig.build.json",
+    "build": "rm -rf dist && tsc -p tsconfig.build.json && chmod +x dist/cli.js",
     "dev": "tsc --watch",
     "start": "node dist/mcp/server.js",
     "check": "tsc --noEmit",
