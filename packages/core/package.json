@@ -19,7 +19,7 @@
     "dev": "tsc --watch",
     "start": "node dist/mcp/server.js",
     "check": "tsc --noEmit",
-    "test": "npm run build && node --test dist/**/*.test.js",
+    "test": "npm run build && node --test $(find dist -name '*.test.js')",
     "prepublishOnly": "npm run check && npm run build"
   },
   "keywords": [

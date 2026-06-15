@@ -39,6 +39,14 @@ export class JsonFileStore implements AmhStore {
     await writeFile(this.filePath!, JSON.stringify(this.data, null, 2), "utf-8");
   }
 
+  private async readLocked<T>(fn: () => T | Promise<T>): Promise<T> {
+    return withFileLock(this.filePath!, async () => {
+      this.loaded = false;
+      await this.load();
+      return fn();
+    });
+  }
+
   private async locked<T>(fn: () => Promise<T>): Promise<T> {
     return withFileLock(this.filePath!, async () => {
       this.loaded = false;
@@ -63,24 +71,25 @@ export class JsonFileStore implements AmhStore {
   }
 
   async get(memoryId: string): Promise<AmhRecord | null> {
-    await this.load();
-    return this.data.records.find((r) => r.memory_id === memoryId) ?? null;
+    return this.readLocked(
+      () => this.data.records.find((r) => r.memory_id === memoryId) ?? null
+    );
   }
 
   async findByContentHash(namespace: string, contentHash: string): Promise<AmhRecord | null> {
-    await this.load();
-    return (
-      this.data.records.find(
-        (r) =>
-          r.namespace === namespace &&
-          r.content_hash === contentHash &&
-          r.status === "active"
-      ) ?? null
+    return this.readLocked(
+      () =>
+        this.data.records.find(
+          (r) =>
+            r.namespace === namespace &&
+            r.content_hash === contentHash &&
+            r.status === "active"
+        ) ?? null
     );
   }
 
   async query(filter: AmhQuery): Promise<AmhRecord[]> {
-    await this.load();
+    return this.readLocked(() => {
     let results = this.data.records;
 
     if (filter.memory_id) {
@@ -112,6 +121,7 @@ export class JsonFileStore implements AmhStore {
     }
 
     return results;
+    });
   }
 
   async delete(memoryId: string): Promise<boolean> {
@@ -125,11 +135,12 @@ export class JsonFileStore implements AmhStore {
   }
 
   async list(namespace?: string): Promise<AmhRecord[]> {
-    await this.load();
-    if (namespace) {
-      return this.data.records.filter((r) => r.namespace === namespace);
-    }
-    return [...this.data.records];
+    return this.readLocked(() => {
+      if (namespace) {
+        return this.data.records.filter((r) => r.namespace === namespace);
+      }
+      return [...this.data.records];
+    });
   }
 
   async appendAudit(event: AuditEvent): Promise<void> {
@@ -139,17 +150,16 @@ export class JsonFileStore implements AmhStore {
   }
 
   async getAudit(memoryId: string): Promise<AuditEvent[]> {
-    await this.load();
-    return this.data.audit.filter((e) => e.memory_id === memoryId);
+    return this.readLocked(() =>
+      this.data.audit.filter((e) => e.memory_id === memoryId)
+    );
   }
 
   async count(): Promise<number> {
-    await this.load();
-    return this.data.records.length;
+    return this.readLocked(() => this.data.records.length);
   }
 
   async namespaces(): Promise<string[]> {
-    await this.load();
-    return [...new Set(this.data.records.map((r) => r.namespace))];
+    return this.readLocked(() => [...new Set(this.data.records.map((r) => r.namespace))]);
   }
 }

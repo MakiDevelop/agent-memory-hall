@@ -43,6 +43,33 @@ function flagValue(args: string[], name: string): string | undefined {
   return idx >= 0 && args[idx + 1] ? args[idx + 1] : undefined;
 }
 
+function positionalArgs(args: string[]): string[] {
+  const positional: string[] = [];
+  const consumed = new Set<number>();
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === "--") {
+      for (let j = i + 1; j < args.length; j++) {
+        positional.push(args[j]);
+      }
+      return positional;
+    }
+    if (args[i].startsWith("--") && args[i + 1] && !args[i + 1].startsWith("--")) {
+      consumed.add(i);
+      consumed.add(i + 1);
+      i++;
+    }
+  }
+
+  for (let i = 0; i < args.length; i++) {
+    if (!consumed.has(i) && !args[i].startsWith("--")) {
+      positional.push(args[i]);
+    }
+  }
+
+  return positional;
+}
+
 function printHelp(): void {
   console.log(`Agent Memory Hall (AMH) v${AMH_VERSION}
 
@@ -101,8 +128,7 @@ async function cmdWrite(args: string[], opts: ServerOptions): Promise<void> {
   const type = flagValue(args, "--type") as Parameters<typeof writeMemory>[0]["memory_type"] | undefined;
   const tier = flagValue(args, "--tier") as Parameters<typeof writeMemory>[0]["source_tier"] | undefined;
   const sourceRef = flagValue(args, "--source-ref") ?? "";
-  const contentParts = args.filter((a) => !a.startsWith("--") && a !== agent && a !== ns && a !== type && a !== tier && a !== sourceRef);
-  const content = contentParts.join(" ").trim();
+  const content = positionalArgs(args).join(" ").trim();
 
   if (!agent || !ns || !type || !content) {
     console.error("Usage: amh write --agent <id> --ns <namespace> --type <type> <content>");
@@ -218,6 +244,15 @@ async function cmdAudit(args: string[], opts: ServerOptions): Promise<void> {
     process.exit(1);
   }
   const ctx = await createAmhContext(opts);
+  const governance = resolveGovernance(ctx.config);
+  const record = await readMemory(id, ctx.store, {
+    callerNamespace: opts.callerNamespace ?? ctx.callerNamespace,
+    namespaceIsolation: governance.namespaceIsolation,
+  });
+  if (!record) {
+    console.log(JSON.stringify([], null, 2));
+    return;
+  }
   const events = await getAuditLog(id, ctx.store);
   console.log(JSON.stringify(events, null, 2));
 }

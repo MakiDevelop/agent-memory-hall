@@ -49,6 +49,17 @@ export function defaultConfigPath(): string {
   return join(homedir(), ".amh", "config.json");
 }
 
+export class ConfigLoadError extends Error {
+  constructor(
+    public readonly configPath: string,
+    cause: unknown
+  ) {
+    const detail = cause instanceof Error ? cause.message : String(cause);
+    super(`Failed to load AMH config from ${configPath}: ${detail}`);
+    this.name = "ConfigLoadError";
+  }
+}
+
 export async function loadConfig(path?: string): Promise<AmhConfig> {
   const configPath = path ?? defaultConfigPath();
   if (!existsSync(configPath)) {
@@ -57,7 +68,7 @@ export async function loadConfig(path?: string): Promise<AmhConfig> {
   try {
     const raw = await readFile(configPath, "utf-8");
     return ConfigSchema.parse(JSON.parse(raw));
-  } catch {
-    return {};
+  } catch (err) {
+    throw new ConfigLoadError(configPath, err);
   }
 }

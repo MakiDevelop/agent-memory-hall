@@ -20,7 +20,12 @@ export type { ServerOptions, AmhServerContext } from "./mcp/server.js";
 export { registerAmhResources } from "./mcp/resources.js";
 export { convertUmpToAmh, convertAmhToUmp, importUmpFile } from "./import/ump.js";
 export { convertMem0ToAmh, importMem0File } from "./import/mem0.js";
-export { loadConfig, resolveGovernance, defaultConfigPath } from "./config.js";
+export {
+  loadConfig,
+  resolveGovernance,
+  defaultConfigPath,
+  ConfigLoadError,
+} from "./config.js";
 export type { AmhConfig, ResolvedGovernance } from "./config.js";
 export { computeContentHash } from "./governance/dedup.js";
 export { applyLifecycleFilter, isExpired } from "./governance/lifecycle.js";
