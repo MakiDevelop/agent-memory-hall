@@ -1,46 +1,29 @@
 # Next Session — Agent Memory Hall
 
-> Last updated: 2026-06-15 (AMH ↔ memory-hall integration complete)
+> Last updated: 2026-06-15 (ACA v0.1 + AMH v0.7.0 schema foundation)
 
-## What's Done
+## Immediate (v0.7.0 → v1.0)
 
-### AMH (`@chibakuma/agent-memory-hall`)
-- **v0.6.5** local (`npm link`); GitHub `main` @ `27e5c8e`
-- npm registry still **0.6.2** — `npm publish --otp=XXXXXX` pending
-- Phases 1–3: MemhallStore (ULID adopt, PATCH revoke/supersede, link, by-amh-hash dedup)
-- 44 unit tests + live contract test (`npm run test:contract`)
-- CI: `integration-memhall.yml` on `main` push
+1. **npm publish 0.7.0** — `cd packages/core && npm publish --access public`（需 OTP）
+2. **SQLite `patchTier` 實作** — 三兄弟一致指出缺失，目前 tier-upgrade 在 SQLite store 會 throw
+3. **MCP `amh_tier_upgrade` tool** — agent 無法透過 MCP 觸發 tier upgrade
+4. **CLI `tier-upgrade` command** — 對齊其他 CLI commands
+5. **`TrustProofSchema.parse` 完整驗證** — 目前只檢查 confirmed_by/confirmed_at
+6. **tier-upgrade 單元測試** — 目前 0 test coverage
 
-### memory-hall (engine)
-- GitHub `main` @ `c5c3da7` (PATCH, link, hash lookup, metadata allowlist)
-- `docs/INTEGRATION.md` mirrors AMH repo
+## Migration (Breaking Changes in v0.7.0)
 
-### Home lab deployment (2026-06-15)
+- `content_hash` 算法變更：`hash(value)` → `hash(format:value)` — 既有 DB dedup index 需 rehash
+- `memory_type: "decision"` 移除 — SQLite/Postgres 舊 records 讀取可能 Zod fail
+- `AuditEvent.agent_id` → `principal_id` — DB column 仍叫 agent_id，adapter 做 mapping
 
-| Role | Host | URL | Image |
-|------|------|-----|-------|
-| **Primary** | Mac mini M4 **#2** | `http://100.89.41.50:9100` | `memory-hall:0.1.0` |
-| **Standby** | Mac mini M4 **#1** | `http://100.122.171.74:9100` | `memory-hall:0.1.0` |
+## Dogfooding 影響
 
-Deploy method: build image on MBP → `docker save | ssh mini docker load` → `compose up --force-recreate` (SSH docker build blocked by keychain).
+- `~/.amh/memory.db` — 既有 records 的 content_hash 跟新算法不一致
+- `.amh/handoff.json` — 仍可讀取（backward compat），新寫入用新 hash
+- MCP server 重啟後用新版 — 舊 decision type records 需手動改 fact
 
-Data: `/Users/maki/data/memory-hall` on both minis (unchanged).
+## ACA Reference Implementation
 
-### Agent ops
-- Handoff SOP: `~/Documents/amh-handoff/SHARED.md` (topology + store rules)
-- All agents: `amh --store memhall --path http://100.89.41.50:9100` (not raw HTTP)
-- Codex sandbox: `--store json` per `codex-handoff.md`
-
-## What's Next
-
-1. **npm publish 0.6.5** — `npm publish --otp=...` from `packages/core`
-2. **Dogfood a week** — bugs/UX via `amh` only
-3. **Backup failover drill** — optional: verify switch to `100.122.171.74:9100`
-4. Blog / Show HN / LoCoMo — unchanged from prior backlog
-
-## Key References
-
-- Integration contract: `docs/INTEGRATION.md` (both repos)
-- GitHub: https://github.com/MakiDevelop/agent-memory-hall
-- Engine: https://github.com/MakiDevelop/memory-hall
-- npm: `@chibakuma/agent-memory-hall`
+本 repo 是 Agent Civilization Architecture (ACA) 的 Layer 1-2 reference implementation。
+ACA spec: https://github.com/MakiDevelop/agent-civilization-architecture
