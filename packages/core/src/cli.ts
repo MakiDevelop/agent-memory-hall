@@ -9,7 +9,7 @@ function parseOpts(): ServerOptions {
   const opts: ServerOptions = {};
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--store" && args[i + 1]) {
-      opts.storeType = args[i + 1] as "json" | "sqlite";
+      opts.storeType = args[i + 1] as "json" | "sqlite" | "postgres";
       i++;
     } else if (args[i] === "--path" && args[i + 1]) {
       opts.storePath = args[i + 1];
@@ -31,10 +31,15 @@ if (!command || command === "serve" || command.startsWith("--")) {
 Usage:
   amh                         Start MCP server (SQLite, default)
   amh serve                   Same as above
-  amh --store sqlite          Use SQLite store (default)
+  amh --store sqlite          Use SQLite store (default, single agent)
   amh --store json            Use JSON file store
-  amh --path /custom/path     Custom store file path
+  amh --store postgres        Use PostgreSQL (multi-agent recommended)
+  amh --path <path|url>       Store file path or connection string
   amh --help                  Show this help
+
+Examples:
+  amh                                          SQLite at ~/.amh/memory.db
+  amh --store postgres --path postgres://user:pass@localhost:5432/amh
 
 MCP Config (add to your client):
   {
@@ -46,9 +51,8 @@ MCP Config (add to your client):
     }
   }
 
-Store locations (default):
-  SQLite: ~/.amh/memory.db
-  JSON:   ~/.amh/memory.json
+Multi-agent with Docker + Postgres:
+  docker compose up -d    (see docker-compose.yml in repo)
 `);
 } else {
   console.error(`Unknown command: ${command}. Run 'amh --help' for usage.`);

@@ -1,6 +1,6 @@
 {
   "name": "@chibakuma/agent-memory-hall",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "MCP-native memory server with built-in governance for AI agents",
   "type": "module",
   "main": "dist/index.js",
@@ -41,11 +41,13 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.0",
     "better-sqlite3": "^12.10.1",
+    "pg": "^8.21.0",
     "zod": "^3.24.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.0.0",
+    "@types/pg": "^8.20.0",
     "typescript": "^5.7.0"
   }
 }

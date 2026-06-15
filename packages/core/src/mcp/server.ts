@@ -3,6 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { JsonFileStore } from "../store/json-file.js";
 import { SqliteStore } from "../store/sqlite.js";
+import { PostgresStore } from "../store/postgres.js";
 import type { AmhStore } from "../store/interface.js";
 import { writeMemory } from "../operations/write.js";
 import { readMemory, queryMemories } from "../operations/read.js";
@@ -11,11 +12,17 @@ import { getAuditLog } from "../operations/audit.js";
 
 export interface ServerOptions {
   storePath?: string;
-  storeType?: "json" | "sqlite";
+  storeType?: "json" | "sqlite" | "postgres";
 }
 
 function createStore(opts: ServerOptions): AmhStore {
   const type = opts.storeType ?? "sqlite";
+  if (type === "postgres") {
+    if (!opts.storePath) {
+      throw new Error("Postgres store requires --path with a connection string (e.g. postgres://user:pass@localhost:5432/amh)");
+    }
+    return new PostgresStore(opts.storePath);
+  }
   if (type === "sqlite") {
     return new SqliteStore(opts.storePath);
   }
