@@ -1,0 +1,30 @@
+{
+  "name": "@agent-memory-hall/core",
+  "version": "0.1.0",
+  "description": "MCP-native memory server with built-in governance for AI agents",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "amh": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/mcp/server.js",
+    "check": "tsc --noEmit"
+  },
+  "keywords": ["agent", "memory", "mcp", "governance", "ai"],
+  "license": "Apache-2.0",
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@types/node": "^22.0.0"
+  }
+}

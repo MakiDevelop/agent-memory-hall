@@ -88,27 +88,70 @@ AMH builds on established research:
 - **Jiang et al. 2026** — Four-structure empirical analysis + Context Saturation Gap (arXiv:2602.19320)
 - **Metadata**: Dublin Core vocabulary + W3C Verifiable Credentials v2.0 for provenance
 
+## Quick Start
+
+```bash
+# Start AMH as an MCP server (Claude Desktop / Cursor / Codex)
+npx agent-memory-hall
+
+# Or install globally
+npm install -g @agent-memory-hall/core
+amh serve
+```
+
+Add to your MCP client config:
+
+```json
+{
+  "mcpServers": {
+    "agent-memory-hall": {
+      "command": "npx",
+      "args": ["agent-memory-hall"]
+    }
+  }
+}
+```
+
+## Built-in Governance (What Makes AMH Different)
+
+Most memory tools store and retrieve. AMH **governs**.
+
+| Feature | What it does | Why it matters |
+|---------|-------------|----------------|
+| **source_tier** | Tags every memory as `raw_source` / `llm_derived` / `human_confirmed` | Prevents the Ouroboros problem (LLM-derived memory fed back as ground truth) |
+| **write-gate** | Configurable checks before any write | Blocks duplicates, enforces namespace rules, validates source |
+| **content_hash dedup** | BLAKE3 hash of content, auto-rejects duplicates | Memory doesn't bloat over time |
+| **namespace isolation** | Memories in different namespaces are isolated by default | Agent A can't accidentally read Agent B's private context |
+
+These aren't optional add-ons. They're defaults. Turn them off if you want, but they're on from day one — because we learned the hard way that ungoverned memory degrades fast.
+
 ## Status
 
-**Phase: Whitepaper + Reference Implementation** (Month 1-2 of 6)
-
-See [`docs/whitepaper-outline.md`](docs/whitepaper-outline.md) for the working outline.
+**Phase: Reference Implementation** (Week 1-2)
 
 ## Roadmap
 
-| Month | Deliverable |
-|-------|------------|
-| 1-2 | Whitepaper (5 chapters) + minimal spec + reference implementation (`amh-python`) |
-| 3 | MCP integration (AMH memories as MCP resources) |
-| 4 | Adapters: import/export for Mem0, Zep, Letta, LangChain Memory |
-| 5 | Case study: *How a multi-agent dev team avoids collective amnesia* |
-| 6 | Public spec release + open source |
+| Week | Deliverable |
+|------|------------|
+| 1-2 | `@agent-memory-hall/core` — MCP server + CLI + JSON store + governance |
+| 3-4 | Whitepaper v1 + UMP/Mem0 import adapters |
+| 5-6 | LoCoMo benchmark (Hindsight AMB framework, public judge prompt) |
+| 7-8 | SQLite store + Letta adapter + MCP resource exposure |
+| 9-10 | Case study: *How a multi-agent dev team avoids collective amnesia* |
+| 11-12 | Public launch: npm publish + GitHub public + blog + HN |
+
+## Positioning
+
+> **UMP defines the wire. AMH ships the governance.**
+
+AMH is compatible with UMP format (import/export). You don't have to choose. But when you use AMH's MCP server, you get source_tier, write gates, dedup, and namespace isolation out of the box — features born from running a 7-agent memory system across 60+ real sessions.
 
 ## Related Efforts
 
-- **W3C AI Agent Memory Interoperability CG** (est. 2026-06-03) — focuses on encryption envelopes, post-quantum identity binding, audit anchors. Complementary to AMH's semantic format + interchange layer.
-- **Letta Context Repositories** — git-based memory for coding agents. Validates the markdown + YAML frontmatter + git approach; AMH aims to make this portable across frameworks.
-- **UMP, OAMP, and other specs** — multiple early-stage efforts exist. None have achieved community convergence. AMH differentiates by shipping a reference implementation alongside the spec.
+- **UMP (Universal Memory Protocol)** — transport-neutral wire format with MCP binding. AMH can import/export UMP records. We focus on governance; they focus on format.
+- **W3C AI Agent Memory Interoperability CG** (est. 2026-06-03) — encryption envelopes, post-quantum identity, audit anchors. Complementary to AMH's semantic + governance layer.
+- **Letta Context Repositories** — git-based memory for coding agents. Validates markdown + git approach; AMH makes it portable across frameworks.
+- **Mem0 / Zep / Cognee** — framework-specific memory stores. AMH provides a governance layer that can sit on top of any of them.
 
 ## License
 
