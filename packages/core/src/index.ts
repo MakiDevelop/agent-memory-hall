@@ -9,3 +9,5 @@ export { transferMemory } from "./operations/transfer.js";
 export type { TransferInput, TransferResult } from "./operations/transfer.js";
 export { getAuditLog } from "./operations/audit.js";
 export { createAmhServer, startServer } from "./mcp/server.js";
+export { convertUmpToAmh, convertAmhToUmp, importUmpFile } from "./import/ump.js";
+export { convertMem0ToAmh, importMem0File } from "./import/mem0.js";
