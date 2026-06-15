@@ -76,7 +76,7 @@ function entryToAmh(entry: MemhallEntry): AmhRecord {
 function mapType(memhallType: string): AmhRecord["memory_type"] {
   const mapping: Record<string, AmhRecord["memory_type"]> = {
     episode: "lesson",
-    decision: "decision",
+    decision: "fact",
     fact: "fact",
     preference: "preference",
     constraint: "constraint",
@@ -100,7 +100,7 @@ function amhMetadataFromRecord(record: AmhRecord): Record<string, unknown> {
     source_tier: record.source.tier,
     valid_until: record.valid_until,
     supersedes: record.supersedes,
-    amh_content_hash: computeContentHash(record.content.value),
+    amh_content_hash: computeContentHash(record.content.format, record.content.value),
   };
 }
 

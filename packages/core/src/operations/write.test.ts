@@ -17,7 +17,7 @@ describe("write + read integration", () => {
       {
         agent_id: "planner",
         namespace: "project:acme",
-        memory_type: "decision",
+        memory_type: "fact",
         content: "Use PostgreSQL",
         source_type: "agent",
         source_ref: "session:1",

@@ -68,7 +68,7 @@ export async function transferMemory(
     event_id: randomUUID(),
     memory_id: newId,
     operation: "transfer",
-    agent_id: input.transferred_by,
+    principal_id: input.transferred_by,
     timestamp: now,
     details: `Transferred from ${source.namespace}/${input.memory_id} to ${input.target_namespace}`,
   };

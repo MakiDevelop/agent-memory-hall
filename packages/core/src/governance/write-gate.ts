@@ -57,7 +57,7 @@ export async function runWriteGate(
     governanceApplied.push("anti_ouroboros");
   }
 
-  record.content_hash = computeContentHash(record.content.value);
+  record.content_hash = computeContentHash(record.content.format, record.content.value);
   governanceApplied.push("content_hash");
 
   if (cfg.dedup) {

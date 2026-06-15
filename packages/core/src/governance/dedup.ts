@@ -10,15 +10,15 @@ export class DuplicateMemoryError extends Error {
   }
 }
 
-export function computeContentHash(value: string): string {
-  return bytesToHex(blake3(utf8ToBytes(value)));
+export function computeContentHash(format: string, value: string): string {
+  return bytesToHex(blake3(utf8ToBytes(`${format}:${value}`)));
 }
 
 export async function checkDedup(
   record: AmhRecord,
   store: AmhStore
 ): Promise<void> {
-  const hash = computeContentHash(record.content.value);
+  const hash = computeContentHash(record.content.format, record.content.value);
   const dup = await store.findByContentHash(record.namespace, hash);
   if (dup && dup.memory_id !== record.memory_id && dup.status === "active") {
     throw new DuplicateMemoryError(dup.memory_id);

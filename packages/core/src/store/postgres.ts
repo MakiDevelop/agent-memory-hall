@@ -186,7 +186,7 @@ export class PostgresStore implements AmhStore {
     await this.pool.query(
       `INSERT INTO audit_log (event_id, memory_id, operation, agent_id, timestamp, details)
        VALUES ($1, $2, $3, $4, $5, $6)`,
-      [event.event_id, event.memory_id, event.operation, event.agent_id, event.timestamp, event.details ?? null]
+      [event.event_id, event.memory_id, event.operation, event.principal_id, event.timestamp, event.details ?? null]
     );
   }
 
@@ -195,7 +195,15 @@ export class PostgresStore implements AmhStore {
     const { rows } = await this.pool.query(
       "SELECT * FROM audit_log WHERE memory_id = $1 ORDER BY timestamp", [memoryId]
     );
-    return rows as AuditEvent[];
+    return rows.map((r: any) => ({
+      event_id: r.event_id,
+      memory_id: r.memory_id,
+      operation: r.operation,
+      principal_id: r.agent_id ?? r.principal_id,
+      timestamp: r.timestamp,
+      correlation_id: r.correlation_id,
+      details: r.details,
+    }));
   }
 
   async count(): Promise<number> {

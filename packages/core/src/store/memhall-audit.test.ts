@@ -16,7 +16,7 @@ describe("MemhallStore audit persistence", () => {
       event_id: "evt-1",
       memory_id: "mem-1",
       operation: "write",
-      agent_id: "agent-a",
+      principal_id: "agent-a",
       timestamp: "2026-06-15T00:00:00Z",
       details: "created",
     });

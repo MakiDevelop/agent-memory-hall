@@ -60,7 +60,7 @@ export function createAmhServer(context: AmhServerContext) {
     {
       agent_id: z.string().describe("ID of the agent writing the memory"),
       namespace: z.string().describe("Memory namespace (e.g. project:acme)"),
-      memory_type: z.enum(["decision", "fact", "preference", "constraint", "lesson", "risk"]),
+      memory_type: z.enum(["fact", "preference", "constraint", "lesson", "risk"]),
       content: z.string().describe("The memory content"),
       source_type: z.enum(["human", "agent", "system", "document"]).default("agent"),
       source_ref: z.string().default("").describe("Source reference (URI or identifier)"),
@@ -121,7 +121,7 @@ export function createAmhServer(context: AmhServerContext) {
     {
       memory_id: z.string().optional().describe("Specific memory ID to fetch"),
       namespace: z.string().optional().describe("Filter by namespace"),
-      memory_type: z.enum(["decision", "fact", "preference", "constraint", "lesson", "risk"]).optional(),
+      memory_type: z.enum(["fact", "preference", "constraint", "lesson", "risk"]).optional(),
       agent_id: z.string().optional().describe("Filter by agent"),
       text: z.string().optional().describe("Text search in content"),
       limit: z.number().optional().default(20),

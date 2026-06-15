@@ -17,7 +17,7 @@ interface Mem0Memory {
 
 function inferMemoryType(mem: Mem0Memory): AmhRecord["memory_type"] {
   const text = (mem.memory ?? "").toLowerCase();
-  if (text.includes("decided") || text.includes("chose") || text.includes("decision")) return "decision";
+  if (text.includes("decided") || text.includes("chose") || text.includes("decision")) return "fact";
   if (text.includes("prefers") || text.includes("likes") || text.includes("preference")) return "preference";
   if (text.includes("must") || text.includes("constraint") || text.includes("cannot")) return "constraint";
   if (text.includes("learned") || text.includes("lesson") || text.includes("mistake")) return "lesson";

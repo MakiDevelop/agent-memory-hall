@@ -63,7 +63,7 @@ export async function revokeMemory(
     event_id: randomUUID(),
     memory_id: input.memory_id,
     operation: "revoke",
-    agent_id: input.revoked_by,
+    principal_id: input.revoked_by,
     timestamp: now,
     details: input.reason ?? "Memory revoked",
   };

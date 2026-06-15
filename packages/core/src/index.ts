@@ -1,5 +1,5 @@
-export { AmhRecordSchema, MemoryType, SourceType, SourceTier, RecordStatus } from "./schema/types.js";
-export type { AmhRecord, AuditEvent, AmhQuery } from "./schema/types.js";
+export { AmhRecordSchema, MemoryType, SourceType, SourceTier, RecordStatus, TrustProofSchema, ProvenanceChainSchema } from "./schema/types.js";
+export type { AmhRecord, AuditEvent, AmhQuery, TrustProof, ProvenanceChain, AuditOperation } from "./schema/types.js";
 export { validateAmhRecord, isValidAmhRecord } from "./schema/validate.js";
 export type { AmhStore } from "./store/interface.js";
 export { JsonFileStore } from "./store/json-file.js";
@@ -17,6 +17,8 @@ export type { TransferInput, TransferResult } from "./operations/transfer.js";
 export { revokeMemory } from "./operations/revoke.js";
 export type { RevokeInput, RevokeResult } from "./operations/revoke.js";
 export { getAuditLog } from "./operations/audit.js";
+export { tierUpgrade, TierDowngradeError, InvalidTrustProofError } from "./operations/tier-upgrade.js";
+export type { TierUpgradeResult } from "./operations/tier-upgrade.js";
 export { createAmhServer, createAmhContext, startServer } from "./mcp/server.js";
 export type { ServerOptions, AmhServerContext } from "./mcp/server.js";
 export { registerAmhResources } from "./mcp/resources.js";

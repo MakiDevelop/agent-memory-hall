@@ -104,7 +104,7 @@ export async function writeMemory(
       event_id: randomUUID(),
       memory_id: input.supersedes,
       operation: "supersede",
-      agent_id: input.agent_id,
+      principal_id: input.agent_id,
       timestamp: now,
       details: `Superseded by ${record.memory_id}`,
     };
@@ -115,7 +115,7 @@ export async function writeMemory(
     event_id: randomUUID(),
     memory_id: record.memory_id,
     operation: "write",
-    agent_id: input.agent_id,
+    principal_id: input.agent_id,
     timestamp: now,
     details: `Created ${input.memory_type} in ${input.namespace}`,
   };

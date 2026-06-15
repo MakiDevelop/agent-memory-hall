@@ -1,9 +1,11 @@
-import type { AmhRecord, AuditEvent, AmhQuery } from "../schema/types.js";
+import type { AmhRecord, AuditEvent, AmhQuery, TrustProof, SourceTier } from "../schema/types.js";
 
 export interface AmhStore {
   put(record: AmhRecord): Promise<void>;
   /** Optional: metadata-only updates (memhall PATCH). Used for revoke/supersede. */
   patchMetadata?(memoryId: string, metadata: Record<string, unknown>): Promise<void>;
+  /** Optional: tier upgrade with trust proof. */
+  patchTier?(memoryId: string, newTier: SourceTier, trustProof: TrustProof): Promise<void>;
   /** Optional: graph edge child → parent (memhall POST …/link). */
   linkSupersedes?(childId: string, parentId: string): Promise<void>;
   get(memoryId: string): Promise<AmhRecord | null>;

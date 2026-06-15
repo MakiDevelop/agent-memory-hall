@@ -50,7 +50,7 @@ describeContract("memhall live contract", () => {
       { callerNamespace: ns }
     );
     assert.notEqual(result.memory_id.length, 36);
-    const hash = computeContentHash(content);
+    const hash = computeContentHash("text/plain", content);
     const dup = await store.findByContentHash(ns, hash);
     assert.equal(dup?.memory_id, result.memory_id);
   });

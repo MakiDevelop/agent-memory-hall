@@ -190,16 +190,25 @@ export class SqliteStore implements AmhStore {
       event_id: event.event_id,
       memory_id: event.memory_id,
       operation: event.operation,
-      agent_id: event.agent_id,
+      agent_id: event.principal_id,
       timestamp: event.timestamp,
       details: event.details ?? null,
     });
   }
 
   async getAudit(memoryId: string): Promise<AuditEvent[]> {
-    return this.db.prepare(
+    const rows = this.db.prepare(
       "SELECT * FROM audit_log WHERE memory_id = ? ORDER BY timestamp"
-    ).all(memoryId) as AuditEvent[];
+    ).all(memoryId) as any[];
+    return rows.map((r) => ({
+      event_id: r.event_id,
+      memory_id: r.memory_id,
+      operation: r.operation,
+      principal_id: r.agent_id ?? r.principal_id,
+      timestamp: r.timestamp,
+      correlation_id: r.correlation_id,
+      details: r.details,
+    }));
   }
 
   async count(): Promise<number> {
