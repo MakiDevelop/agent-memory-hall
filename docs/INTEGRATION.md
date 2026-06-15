@@ -105,13 +105,9 @@ Track fixes in paired releases tagged `integration:memhall-amh`.
 
 **Shipped:** `metadata.amh_content_hash` on memhall writes. Engine-side hash lookup still open.
 
-### P1 — Supersedes not linked — **open (Phase 2)**
+### P1 — Supersedes not linked — **fixed in AMH 0.6.4**
 
-- AMH marks parent `status: superseded` and sets child `supersedes`.
-- memory-hall has `POST /v1/memory/{id}/link` with `relation: supersedes`.
-- Adapter does not call link; graph retrieval in engine is unused.
-
-**Fix (AMH):** After child write, `POST /v1/memory/{child}/link` → parent.
+**Shipped:** Child write → parent PATCH → `linkSupersedes(child, parent)` → audit (child-first for atomicity).
 
 ### P2 — Audit split
 

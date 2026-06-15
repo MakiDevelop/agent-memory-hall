@@ -70,6 +70,7 @@ export async function writeMemory(
   );
   record = gated;
 
+  let supersedeParent: AmhRecord | undefined;
   if (input.supersedes) {
     const parent = await readMemory(input.supersedes, store, {
       callerNamespace: context.callerNamespace,
@@ -81,14 +82,23 @@ export async function writeMemory(
         `Cannot supersede: parent memory not found or not accessible: ${input.supersedes}`
       );
     }
-    parent.status = "superseded";
+    supersedeParent = parent;
+  }
+
+  await store.put(record);
+
+  if (input.supersedes && supersedeParent) {
     if (store.patchMetadata) {
       await store.patchMetadata(input.supersedes, {
         amh_status: "superseded",
-        amh_version: parent.amh_version,
+        amh_version: supersedeParent.amh_version,
       });
     } else {
-      await store.put(parent);
+      supersedeParent.status = "superseded";
+      await store.put(supersedeParent);
+    }
+    if (store.linkSupersedes) {
+      await store.linkSupersedes(record.memory_id, input.supersedes);
     }
     const supersedeAudit: AuditEvent = {
       event_id: randomUUID(),
@@ -96,16 +106,14 @@ export async function writeMemory(
       operation: "supersede",
       agent_id: input.agent_id,
       timestamp: now,
-      details: `Superseded by ${memoryId}`,
+      details: `Superseded by ${record.memory_id}`,
     };
     await store.appendAudit(supersedeAudit);
   }
 
-  await store.put(record);
-
   const auditEvent: AuditEvent = {
     event_id: randomUUID(),
-    memory_id: memoryId,
+    memory_id: record.memory_id,
     operation: "write",
     agent_id: input.agent_id,
     timestamp: now,

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.4 — 2026-06-15
+
+### Added (`integration:memhall-amh` Phase 2)
+- `AmhStore.linkSupersedes()`; `MemhallStore` calls `POST /v1/memory/{child}/link`
+- Supersede order: parent PATCH → child write → link edge → audit
+
 ## 0.6.3 — 2026-06-15
 
 ### Added (`integration:memhall-amh`)

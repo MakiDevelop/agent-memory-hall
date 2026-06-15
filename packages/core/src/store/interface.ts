@@ -4,6 +4,8 @@ export interface AmhStore {
   put(record: AmhRecord): Promise<void>;
   /** Optional: metadata-only updates (memhall PATCH). Used for revoke/supersede. */
   patchMetadata?(memoryId: string, metadata: Record<string, unknown>): Promise<void>;
+  /** Optional: graph edge child → parent (memhall POST …/link). */
+  linkSupersedes?(childId: string, parentId: string): Promise<void>;
   get(memoryId: string): Promise<AmhRecord | null>;
   query(filter: AmhQuery): Promise<AmhRecord[]>;
   findByContentHash(namespace: string, contentHash: string): Promise<AmhRecord | null>;

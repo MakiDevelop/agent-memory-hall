@@ -57,6 +57,15 @@ describe("MemhallStore integration adapter", () => {
         );
       }
 
+      if (method === "POST" && url.includes("/link")) {
+        return new Response(
+          JSON.stringify({
+            entry: { entry_id: "01HXMEMHALLULID00000002", references: ["01HXMEMHALLULID00000001"] },
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
       return new Response("not found", { status: 404 });
     }) as typeof fetch;
   });
@@ -81,5 +90,18 @@ describe("MemhallStore integration adapter", () => {
     await store.patchMetadata("01HXMEMHALLULID00000001", { amh_status: "revoked" });
     assert.equal(calls[0]?.method, "PATCH");
     assert.match(calls[0]?.url ?? "", /\/v1\/memory\/01HXMEMHALLULID00000001$/);
+  });
+
+  it("linkSupersedes posts child-to-parent edge", async () => {
+    const store = new MemhallStore(BASE, "token");
+    await store.linkSupersedes("01CHILD", "01PARENT");
+    assert.equal(calls[0]?.method, "POST");
+    assert.match(calls[0]?.url ?? "", /\/v1\/memory\/01CHILD\/link$/);
+    const body = JSON.parse(calls[0]?.body ?? "{}") as {
+      target_entry_id: string;
+      relation: string;
+    };
+    assert.equal(body.target_entry_id, "01PARENT");
+    assert.equal(body.relation, "supersedes");
   });
 });

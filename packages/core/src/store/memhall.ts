@@ -176,6 +176,13 @@ export class MemhallStore implements AmhStore {
     await this.api("PATCH", `/v1/memory/${memoryId}`, { metadata });
   }
 
+  async linkSupersedes(childId: string, parentId: string): Promise<void> {
+    await this.api("POST", `/v1/memory/${childId}/link`, {
+      target_entry_id: parentId,
+      relation: "supersedes",
+    });
+  }
+
   async get(memoryId: string): Promise<AmhRecord | null> {
     try {
       const entry = await this.api<{ entry: MemhallEntry }>(
