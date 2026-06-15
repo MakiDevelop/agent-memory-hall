@@ -110,6 +110,10 @@ npx @chibakuma/agent-memory-hall --store postgres --path postgres://amh:amh@loca
 
 Resources: `amh://{namespace}/{memory_id}`
 
+## Codex Handoff
+
+See [docs/codex-handoff.md](docs/codex-handoff.md) for local CLI dogfooding (no memhall HTTP / no bearer token).
+
 ## Status
 
 **v0.5.0 — Reference Implementation (dogfooding)**

@@ -1,4 +1,5 @@
-import { open, unlink } from "node:fs/promises";
+import { open, unlink, mkdir } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { dirname } from "node:path";
 
 const MAX_RETRIES = 50;
@@ -11,6 +12,9 @@ function lockPath(filePath: string): string {
 export async function withFileLock<T>(filePath: string, fn: () => Promise<T>): Promise<T> {
   const lock = lockPath(filePath);
   const dir = dirname(filePath);
+  if (!existsSync(dir)) {
+    await mkdir(dir, { recursive: true });
+  }
 
   for (let attempt = 0; attempt < MAX_RETRIES; attempt++) {
     try {
