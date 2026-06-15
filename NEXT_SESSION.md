@@ -1,43 +1,40 @@
 # Next Session — Agent Memory Hall
 
-> Last updated: 2026-06-15 (AMH v0.7.2 + ACA Layer 3 Identity in progress)
+> Last updated: 2026-06-15 (AMH v0.8.0 + ACA full spec complete)
 
 ## Done (this session)
 
-1. ~~SQLite/Postgres `patchTier`~~ ✅
-2. ~~MCP `amh_tier_upgrade` tool~~ ✅
-3. ~~CLI `tier-upgrade` command~~ ✅
-4. ~~TrustProofSchema.parse 完整驗證 (.min(1) + Zod)~~ ✅
-5. ~~tier-upgrade 單元測試 (12 tests)~~ ✅
-6. ~~decision→fact migration + content_hash rehash~~ ✅
-7. ~~expire operation + MCP + CLI~~ ✅
-8. ~~ProvenanceChain writing (tier-upgrade/transfer/supersede)~~ ✅
-9. ~~trust_proof/provenance_chain persistence (new columns)~~ ✅
-10. ~~JsonFileStore/MemhallStore decision→fact fallback~~ ✅
-11. ~~npm 0.7.1 + 0.7.2 published~~ ✅
-12. ~~ACA conformance tests 14/14 (Layer 1: 8 + Layer 2: 5 + cross: 1)~~ ✅
-13. ~~ACA Layer 3 Identity spec~~ ✅
-14. ~~ACA Layer 3 conformance tests (5 files)~~ ✅
+- AMH v0.8.0: tier-upgrade + expire + provenance + trust_proof + Layer 3 Identity (71 tests)
+- ACA: 全 6 層 spec + 34 conformance tests
+- npm: 0.7.1 / 0.7.2 / 0.8.0 published
+- README: 兩個 repo 都更新
 
-## In Progress
+## Next (回家 session)
 
-- **AMH Layer 3 Identity adapter** — Principal registry + auth + ACL (→ v0.8.0)
+1. **AMH Layer 4 Authority 實作** — Role + RoleAssignment + checkAuthority + escalation
+2. **AMH Layer 5 Decision 實作** — Decision lifecycle state machine
+3. **AMH Governance Plane 實作** — GovernanceRule + amendment + immutable enforcement
+4. **npm 0.9.0** — L4/5 + README 一起 publish
 
 ## Grok P1 Fast Follow
 
-- Atomic tier-upgrade (wrap patchTier + provenance in single transaction)
+- Atomic tier-upgrade (wrap patchTier + provenance in single SQLite transaction)
 - ProvenanceChain origin at initial write (not just on first transition)
 
-## ACA Next
+## ACA Spec Follow-up
 
-- Layer 4 Authority spec + conformance tests
-- Layer 5 Decision spec
-- Governance Plane spec
-- AMH adapter for ACA conformance test runner (wire AcaTestAdapter to AMH)
+- Governance Plane v0.2 (Grok P0: Anti-Ouroboros refine wording, amendment entrenchment, code-level immutability conformance test)
+- Layer 5 v0.2 四方 re-review (Codex/Gemini CLI errored; need retry)
 
 ## Publication
 
 - **X thread** — 草稿在 `~/Documents/agent-council/aca-review/x-thread-draft.md`
-- **NeurIPS SEA 2026** — abstract deadline ~Sep 2026
-- **WMAC @ AAAI 2027** — position paper deadline ~Oct 2026
-- **COINE @ AAMAS 2027** — full paper deadline ~Feb 2027
+- **NeurIPS SEA 2026** — ~Sep 2026（需 Scout-1 查 2025-2026 related work）
+- **WMAC @ AAAI 2027** — ~Oct 2026
+- **COINE @ AAMAS 2027** — ~Feb 2027
+
+## Governance Constraint
+
+ACA/AMH 所有變更需四方 review（Claude + Codex + Gemini + Grok）。
+Scout 1/2 需求主動 surface 給 Maki。
+（memhall 01KV5AZ8C2W87SR4HEQVH133GD）
