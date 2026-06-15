@@ -116,7 +116,7 @@ See [packages/core/docs/codex-handoff.md](packages/core/docs/codex-handoff.md) f
 
 ## Status
 
-**v0.6.0 — Reference Implementation (dogfooding)**
+**v0.6.2 — Reference Implementation (dogfooding)**
 
 - npm: `@chibakuma/agent-memory-hall`
 - Stores: SQLite (default) / PostgreSQL / JSON / memhall

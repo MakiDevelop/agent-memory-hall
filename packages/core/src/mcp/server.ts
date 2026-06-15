@@ -139,7 +139,9 @@ export function createAmhServer(context: AmhServerContext) {
           content: [
             {
               type: "text" as const,
-              text: record ? JSON.stringify(record, null, 2) : "Not found",
+              text: record
+                ? JSON.stringify(record, null, 2)
+                : JSON.stringify({ error: "not_found", memory_id: params.memory_id }, null, 2),
             },
           ],
         };

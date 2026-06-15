@@ -8,7 +8,7 @@ import { queryMemories, readMemory } from "./operations/read.js";
 import { getAuditLog } from "./operations/audit.js";
 import { revokeMemory } from "./operations/revoke.js";
 import { transferMemory } from "./operations/transfer.js";
-import { importUmpFile } from "./import/ump.js";
+import { importUmpFile, exportUmpFile } from "./import/ump.js";
 import { importMem0File } from "./import/mem0.js";
 import { resolveGovernance } from "./config.js";
 
@@ -80,6 +80,7 @@ Usage:
   amh write [options] <content>
   amh read [options]
   amh import --from <ump|mem0> <file>
+  amh export --to ump --out <file> [--ns <namespace>]
   amh transfer --id <memory_id> --agent <id> --ns <namespace> --by <agent>
   amh forget --id <memory_id> --by <agent> [--reason <text>]
   amh audit --id <memory_id>
@@ -174,7 +175,11 @@ async function cmdRead(args: string[], opts: ServerOptions): Promise<void> {
   const id = flagValue(args, "--id");
   if (id) {
     const record = await readMemory(id, ctx.store, readCtx);
-    console.log(record ? JSON.stringify(record, null, 2) : "Not found");
+    console.log(
+      record
+        ? JSON.stringify(record, null, 2)
+        : JSON.stringify({ error: "not_found", memory_id: id }, null, 2)
+    );
     return;
   }
 
@@ -237,6 +242,32 @@ async function cmdImport(args: string[], opts: ServerOptions): Promise<void> {
   }
 
   console.log(JSON.stringify({ imported, total: records.length, errors }, null, 2));
+}
+
+async function cmdExport(args: string[], opts: ServerOptions): Promise<void> {
+  const to = flagValue(args, "--to");
+  const out = flagValue(args, "--out");
+  if (to !== "ump" || !out) {
+    console.error("Usage: amh export --to ump --out <file> [--ns <namespace>]");
+    process.exit(1);
+  }
+
+  const ctx = await createAmhContext(opts);
+  const governance = resolveGovernance(ctx.config);
+  const records = await queryMemories(
+    {
+      namespace: flagValue(args, "--ns"),
+      limit: 500,
+    },
+    ctx.store,
+    {
+      callerNamespace: opts.callerNamespace ?? ctx.callerNamespace,
+      namespaceIsolation: governance.namespaceIsolation,
+    }
+  );
+
+  const exported = await exportUmpFile(records, out);
+  console.log(JSON.stringify({ exported, path: out }, null, 2));
 }
 
 async function cmdForget(args: string[], opts: ServerOptions): Promise<void> {
@@ -364,6 +395,11 @@ if (command === "--help" || command === "-h" || rawArgs.includes("--help") || ra
   });
 } else if (command === "import") {
   cmdImport(rest, opts).catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+} else if (command === "export") {
+  cmdExport(rest, opts).catch((err) => {
     console.error(err);
     process.exit(1);
   });

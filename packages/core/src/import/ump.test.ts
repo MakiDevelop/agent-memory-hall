@@ -1,6 +1,9 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { convertUmpToAmh, convertAmhToUmp } from "./ump.js";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { convertUmpToAmh, convertAmhToUmp, exportUmpFile } from "./ump.js";
 import type { AmhRecord } from "../schema/types.js";
 
 describe("UMP import", () => {
@@ -40,5 +43,32 @@ describe("UMP import", () => {
     assert.equal(back.namespace, amh.namespace);
     assert.equal(back.content.value, amh.content.value);
     assert.equal(back.memory_type, amh.memory_type);
+  });
+
+  it("exports AMH records to UMP JSON file", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "amh-ump-export-"));
+    const out = join(dir, "export.json");
+    const amh: AmhRecord = {
+      amh_version: "0.1",
+      memory_id: "mem-export",
+      version: 1,
+      status: "active",
+      agent_id: "planner",
+      namespace: "project:acme",
+      memory_type: "fact",
+      content: { format: "text/plain", value: "export me" },
+      source: { type: "agent", ref: "", tier: "llm_derived" },
+      created_at: "2026-06-15T09:30:00Z",
+      created_by: "planner",
+    };
+
+    const count = await exportUmpFile([amh], out);
+    assert.equal(count, 1);
+
+    const raw = JSON.parse(await readFile(out, "utf-8"));
+    assert.equal(raw[0].id, "urn:ump:mem-export");
+    assert.equal(raw[0].body, "export me");
+
+    await rm(dir, { recursive: true });
   });
 });

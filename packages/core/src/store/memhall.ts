@@ -38,13 +38,22 @@ interface MemhallSearchResult {
   total?: number;
 }
 
+const VALID_STATUS = new Set<AmhRecord["status"]>(["active", "superseded", "revoked", "expired"]);
+
+function amhStatusFromMeta(meta: Record<string, unknown>): AmhRecord["status"] {
+  const status = meta.amh_status;
+  return typeof status === "string" && VALID_STATUS.has(status as AmhRecord["status"])
+    ? (status as AmhRecord["status"])
+    : "active";
+}
+
 function entryToAmh(entry: MemhallEntry): AmhRecord {
   const meta = entry.metadata ?? {};
   return {
     amh_version: "0.1",
     memory_id: entry.entry_id,
     version: 1,
-    status: "active",
+    status: amhStatusFromMeta(meta),
     agent_id: entry.agent_id,
     namespace: entry.namespace,
     memory_type: mapType(entry.type),
@@ -136,7 +145,7 @@ export class MemhallStore implements AmhStore {
   }
 
   async put(record: AmhRecord): Promise<void> {
-    await this.api<MemhallWriteResponse>("POST", "/v1/memory/write", {
+    const payload: Record<string, unknown> = {
       agent_id: record.agent_id,
       namespace: record.namespace,
       type: reverseMapType(record.memory_type),
@@ -149,8 +158,15 @@ export class MemhallStore implements AmhStore {
         source_tier: record.source.tier,
         valid_until: record.valid_until,
         supersedes: record.supersedes,
+        amh_status: record.status,
       },
-    });
+    };
+
+    if (record.memory_id) {
+      payload.entry_id = record.memory_id;
+    }
+
+    await this.api<MemhallWriteResponse>("POST", "/v1/memory/write", payload);
   }
 
   async get(memoryId: string): Promise<AmhRecord | null> {

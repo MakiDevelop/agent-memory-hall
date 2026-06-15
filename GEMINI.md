@@ -1,0 +1,1 @@
+/Users/maki/.gemini/GEMINI.md

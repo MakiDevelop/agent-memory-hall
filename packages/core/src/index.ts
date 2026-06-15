@@ -20,7 +20,7 @@ export { getAuditLog } from "./operations/audit.js";
 export { createAmhServer, createAmhContext, startServer } from "./mcp/server.js";
 export type { ServerOptions, AmhServerContext } from "./mcp/server.js";
 export { registerAmhResources } from "./mcp/resources.js";
-export { convertUmpToAmh, convertAmhToUmp, importUmpFile } from "./import/ump.js";
+export { convertUmpToAmh, convertAmhToUmp, importUmpFile, exportUmpFile } from "./import/ump.js";
 export { convertMem0ToAmh, importMem0File } from "./import/mem0.js";
 export {
   loadConfig,

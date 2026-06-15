@@ -81,8 +81,8 @@ describe("MCP stdio e2e", () => {
           memory_id: written.memory_id,
         },
       });
-      const hiddenText = (hiddenResult as { content?: Array<{ text?: string }> }).content?.[0]?.text;
-      assert.equal(hiddenText, "Not found");
+      const hidden = parseToolText(hiddenResult) as { error: string };
+      assert.equal(hidden.error, "not_found");
 
       const auditResult = await client.callTool({
         name: "amh_audit",

@@ -21,13 +21,14 @@ src/
 │   ├── write.ts          # Create memory + governance + audit
 │   ├── read.ts           # Query with namespace isolation + lifecycle filter
 │   ├── transfer.ts       # Same-namespace agent reassignment through write-gate
+│   ├── revoke.ts         # Soft-delete (status: revoked) + audit
 │   └── audit.ts          # Append-only event log
 ├── governance/
 │   ├── source-tier.ts    # Anti-Ouroboros on supersede chains
 │   ├── write-gate.ts     # Pre-write checks (wired)
 │   ├── dedup.ts          # BLAKE3 content_hash dedup
 │   ├── namespace.ts      # Namespace isolation (wired on read/write)
-│   └── lifecycle.ts      # valid_until / expired filtering
+│   └── lifecycle.ts      # Hide expired / revoked / superseded on default read
 ├── store/
 │   ├── interface.ts      # Store adapter interface
 │   ├── factory.ts        # createStore() from config/CLI
@@ -41,7 +42,7 @@ src/
 ├── import/
 │   ├── ump.ts            # UMP import/export
 │   └── mem0.ts           # Mem0 import
-└── cli.ts                # serve | write | read | import | audit | status
+└── cli.ts                # serve | write | read | import | export | transfer | forget | audit | status
 ```
 
 ## Governance Layer
@@ -56,7 +57,7 @@ src/
 - Per-namespace dedup via indexed hash lookup
 
 ### lifecycle
-Read paths filter records past `valid_until` unless `include_expired=true`.
+Default reads hide expired, revoked, and superseded records. Use `filterInactive: false` for audit/admin paths.
 
 ## Configuration
 
@@ -70,6 +71,9 @@ CLI override: `--caller-ns project:acme`
 amh write --agent planner --ns project:acme --type decision "Use PostgreSQL"
 amh read --ns project:acme --type decision
 amh import --from ump ./memory.ump.json
+amh export --to ump --out ./memory.ump.json --ns project:acme
+amh transfer --id <id> --agent planner --ns project:acme --by codex
+amh forget --id <id> --by codex
 amh audit --id <memory_id>
 amh status
 amh serve

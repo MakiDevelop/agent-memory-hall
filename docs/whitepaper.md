@@ -331,7 +331,7 @@ AMH is boring infrastructure. That is the point.
 ### 5.1 What Exists Today
 
 - **Reference implementation**: `@chibakuma/agent-memory-hall` on npm. One command to start: `npx @chibakuma/agent-memory-hall`.
-- **MCP server**: Five tools (`amh_write`, `amh_read`, `amh_transfer`, `amh_audit`, `amh_status`) compatible with Claude Desktop, Cursor, and any MCP host.
+- **MCP server**: Six tools (`amh_write`, `amh_read`, `amh_transfer`, `amh_forget`, `amh_audit`, `amh_status`) compatible with Claude Desktop, Cursor, and any MCP host.
 - **Import adapters**: UMP and Mem0 bidirectional conversion.
 - **Governance layer**: Content-hash dedup, anti-Ouroboros, namespace isolation, source-tier validation — all enabled by default.
 

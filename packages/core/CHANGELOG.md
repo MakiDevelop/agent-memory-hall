@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.6.2 — 2026-06-15
+
+### Added
+- CLI `amh export --to ump --out <file> [--ns <namespace>]`
+
+### Fixed
+- Memhall store persists `amh_status` in metadata on write/read (revoke sync)
+- `amh_read` returns JSON `{ error: "not_found" }` instead of plain text
+
+### Changed
+- Docs synced: NEXT_SESSION, ARCHITECTURE, whitepaper (6 tools)
+
 ## 0.6.1 — 2026-06-15
 
 ### Fixed

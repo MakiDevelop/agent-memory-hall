@@ -113,3 +113,10 @@ export async function importUmpFile(filePath: string): Promise<AmhRecord[]> {
   const records: UmpRecord[] = Array.isArray(data) ? data : [data];
   return records.map(convertUmpToAmh);
 }
+
+export async function exportUmpFile(records: AmhRecord[], filePath: string): Promise<number> {
+  const { writeFile } = await import("node:fs/promises");
+  const ump = records.map(convertAmhToUmp);
+  await writeFile(filePath, JSON.stringify(ump, null, 2), "utf-8");
+  return ump.length;
+}
