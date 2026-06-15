@@ -1,54 +1,56 @@
 # Next Session — Agent Memory Hall + ACA Ecosystem
 
-> Last updated: 2026-06-15 (ACA Ecosystem v1 complete)
+> Last updated: 2026-06-15 (ACA launch prep complete, mk-brain integrated, aca-conformance published)
+> 中間暫存（未 git commit）
 
 ## Done (this session — massive)
 
-### AMH (8 commits, v0.6.5 → v0.8.0)
-- tier-upgrade 四補項 + 三兄弟 review + expire/provenance/trust_proof + Layer 3 Identity
-- 71 tests, npm 0.7.1 / 0.7.2 / 0.8.0 published, README updated
+### Reviewer #2 Response + Council Review
+- 4 輪 Scout → Evidence Catalog 42 條 fact-checked + Anti-Ouroboros Evidence 13 來源
+- ACA spec L4 Governance Primitives + KPI 重構 + RFC process
+- Full council review + 5 項 fact-check 修正
+- README 重構 + Launch drafts 三帖 + agent 名單清除
+- Reviewer #2 v2 received: 8.3/10
 
-### ACA Spec (8 commits)
-- 全 6 層 spec: L1-L3 v0.1, L4-L5 v0.2, GP v0.1
-- 34 conformance tests
-- L4 四方 review 重寫, L5 Grok P0 修正
-- README updated
+### npm Ecosystem
+- 四包 cross-link: AMH 0.8.1 / aca-govern 0.1.2 / aca-types 0.1.1
+- **aca-conformance 0.1.0 published** — 34 tests 獨立打包
 
-### aca-govern (柱子 2, 新 repo)
-- MCP governance proxy MVP, 4 tests
-- npm @chibakuma/aca-govern v0.1.1
+### mk-brain ACA Integration
+- source_tier 統一 ACA 詞彙（tier1/tier2 → raw_source）
+- 三兄弟 review pass（Grok approve）
+- Production DB migrated on mini1（2,724 筆）
+- commit 866480c pushed
 
-### aca-types (SDK, 新 repo)
-- ACA protocol TypeScript types (6 layers)
-- npm @chibakuma/aca-types v0.1.0
-
-### mk-council-public (柱子 3)
-- L5 Decision endpoints: propose/review/ratify/veto/submit_review
-- 107 tests (10 new, 0 regression)
-
-### Scout (完成)
-- Scout-1: ACS / Animesis / AgentMesh / Engram 競品全貌
-- Scout-2: Anti-Ouroboros safe / MCP governance gap / X sentiment
-- 定位: ACS=enforcement, ACA=governance, AgentMesh=framework
+### Explored
+- knowledge-pipeline: Anti-Ouroboros 教科書風險（core_insight = LLM 但無標記）
+- council-archive: 90% agent-produced, 最大 Anti-Ouroboros 風險面
 
 ## Next Session
 
-| 優先級 | 行動 |
-|---|---|
-| 🟡 | @aca/conformance npm 包（test runner） |
-| 🟡 | Blog post + X thread（soft launch） |
-| 🟡 | AMH L4/L5 + GP implementation |
-| 🟡 | Governance Plane spec v0.2 |
-| 🟡 | npm scope 遷移評估（@chibakuma → @aca-protocol） |
-| 🟢 | NeurIPS SEA abstract（~Sep 2026） |
-| 🟢 | Python SDK governance layer |
+| 優先級 | 行動 | 備註 |
+|---|---|---|
+| 🔴 | **Jun 20 發帖** | ~/Documents/ACA-Launch-Drafts.md |
+| 🟡 | knowledge-pipeline ACA 整合 | source_tier + Anti-Ouroboros gate, ~2h |
+| 🟡 | council-archive ACA 整合 | agent_id + source_tier + tier filter, ~2h |
+| 🟡 | @anilsprasad DM | 第一個 conforming impl 候選 |
+| 🟡 | 找朋友試用 ACA adapter | 毒點 #3 |
+| 🟡 | npm scope 遷移評估 | @chibakuma → @aca-protocol |
+| 🟡 | AMH L4/L5 implementation | 第二波 |
+| 🟢 | NeurIPS SEA abstract | ~Sep 2026 |
 
-## Governance
+## npm Packages
 
-四方 review (Claude + Codex + Gemini + Grok) for all ACA/AMH changes.
-Scout needs → surface to Maki.
+| Package | Version | Status |
+|---|---|---|
+| @chibakuma/agent-memory-hall | 0.8.1 | ✅ published |
+| @chibakuma/aca-govern | 0.1.2 | ✅ published |
+| @chibakuma/aca-types | 0.1.1 | ✅ published |
+| @chibakuma/aca-conformance | 0.1.0 | ✅ published |
 
 ## Key Documents
 
-- ~/Documents/ACA-Protocol-Overview.md (對外主文 v4)
-- ~/Documents/ACA-Ecosystem-Launch-Plan.md (內部執行 v3)
+- ~/Documents/ACA-Protocol-Overview.md (v5)
+- ~/Documents/ACA-Ecosystem-Launch-Plan.md (v4)
+- ~/Documents/ACA-Launch-Drafts.md (三帖草稿)
+- ~/Documents/ACA_Reviewer2_Toxic_Review_v2.md (8.3/10)
