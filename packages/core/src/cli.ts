@@ -23,7 +23,7 @@ MCP Config (add to your client):
     "mcpServers": {
       "agent-memory-hall": {
         "command": "npx",
-        "args": ["agent-memory-hall"]
+        "args": ["@chibakuma/agent-memory-hall"]
       }
     }
   }
