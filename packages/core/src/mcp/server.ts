@@ -4,6 +4,7 @@ import { z } from "zod";
 import { JsonFileStore } from "../store/json-file.js";
 import { SqliteStore } from "../store/sqlite.js";
 import { PostgresStore } from "../store/postgres.js";
+import { MemhallStore } from "../store/memhall.js";
 import type { AmhStore } from "../store/interface.js";
 import { writeMemory } from "../operations/write.js";
 import { readMemory, queryMemories } from "../operations/read.js";
@@ -12,11 +13,20 @@ import { getAuditLog } from "../operations/audit.js";
 
 export interface ServerOptions {
   storePath?: string;
-  storeType?: "json" | "sqlite" | "postgres";
+  storeType?: "json" | "sqlite" | "postgres" | "memhall";
+  memhallToken?: string;
 }
 
 function createStore(opts: ServerOptions): AmhStore {
   const type = opts.storeType ?? "sqlite";
+  if (type === "memhall") {
+    const url = opts.storePath ?? "http://100.89.41.50:9100";
+    const token = opts.memhallToken ?? process.env.MH_API_TOKEN ?? "";
+    if (!token) {
+      throw new Error("Memhall store requires MH_API_TOKEN env var or --token flag");
+    }
+    return new MemhallStore(url, token);
+  }
   if (type === "postgres") {
     if (!opts.storePath) {
       throw new Error("Postgres store requires --path with a connection string (e.g. postgres://user:pass@localhost:5432/amh)");

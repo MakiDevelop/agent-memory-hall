@@ -9,7 +9,10 @@ function parseOpts(): ServerOptions {
   const opts: ServerOptions = {};
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--store" && args[i + 1]) {
-      opts.storeType = args[i + 1] as "json" | "sqlite" | "postgres";
+      opts.storeType = args[i + 1] as "json" | "sqlite" | "postgres" | "memhall";
+      i++;
+    } else if (args[i] === "--token" && args[i + 1]) {
+      opts.memhallToken = args[i + 1];
       i++;
     } else if (args[i] === "--path" && args[i + 1]) {
       opts.storePath = args[i + 1];
@@ -34,7 +37,9 @@ Usage:
   amh --store sqlite          Use SQLite store (default, single agent)
   amh --store json            Use JSON file store
   amh --store postgres        Use PostgreSQL (multi-agent recommended)
+  amh --store memhall         Use existing memhall instance as backend
   amh --path <path|url>       Store file path or connection string
+  amh --token <token>         Auth token (for memhall store)
   amh --help                  Show this help
 
 Examples:

@@ -4,6 +4,7 @@ export type { AmhStore } from "./store/interface.js";
 export { JsonFileStore } from "./store/json-file.js";
 export { SqliteStore } from "./store/sqlite.js";
 export { PostgresStore } from "./store/postgres.js";
+export { MemhallStore } from "./store/memhall.js";
 export { writeMemory } from "./operations/write.js";
 export type { WriteInput, WriteResult } from "./operations/write.js";
 export { readMemory, queryMemories } from "./operations/read.js";
