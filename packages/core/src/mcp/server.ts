@@ -3,7 +3,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import type { AmhStore } from "../store/interface.js";
 import { createStore, storeOptionsFromConfig, type StoreOptions } from "../store/factory.js";
-import { loadConfig, resolveGovernance, type AmhConfig } from "../config.js";
+import { loadConfig, resolveGovernance, resolveIdentityConfig, type AmhConfig } from "../config.js";
 import { AMH_VERSION } from "../version.js";
 import { writeMemory } from "../operations/write.js";
 import { readMemory, queryMemories } from "../operations/read.js";
@@ -13,6 +13,10 @@ import { expireMemory } from "../operations/expire.js";
 import { tierUpgrade } from "../operations/tier-upgrade.js";
 import { getAuditLog } from "../operations/audit.js";
 import { registerAmhResources } from "./resources.js";
+import { SqliteIdentityStore } from "../identity/sqlite-identity-store.js";
+import type { IdentityStore } from "../identity/store.js";
+import type { GrantPermission, PrincipalType } from "../identity/types.js";
+import { authorize, registerPrincipal } from "../identity/operations.js";
 
 export interface ServerOptions extends StoreOptions {
   configPath?: string;
@@ -21,8 +25,10 @@ export interface ServerOptions extends StoreOptions {
 
 export interface AmhServerContext {
   store: AmhStore;
+  identityStore?: IdentityStore;
   config: AmhConfig;
   governance: ReturnType<typeof resolveGovernance>;
+  identity: ReturnType<typeof resolveIdentityConfig>;
   callerNamespace?: string;
 }
 
@@ -30,12 +36,18 @@ export async function createAmhContext(opts: ServerOptions = {}): Promise<AmhSer
   const config = await loadConfig(opts.configPath);
   const store = createStore(storeOptionsFromConfig(config, opts));
   const governance = resolveGovernance(config);
+  const identity = resolveIdentityConfig(config);
+  const identityStore = hasSqliteDb(store) ? new SqliteIdentityStore((store as any).db) : undefined;
   const callerNamespace = opts.callerNamespace ?? config.caller_namespace;
-  return { store, config, governance, callerNamespace };
+  return { store, identityStore, config, governance, identity, callerNamespace };
+}
+
+function hasSqliteDb(store: AmhStore): boolean {
+  return "db" in store && typeof (store as any).db?.prepare === "function";
 }
 
 export function createAmhServer(context: AmhServerContext) {
-  const { store, governance, callerNamespace } = context;
+  const { store, governance, identity, identityStore, callerNamespace } = context;
 
   const server = new McpServer({
     name: "agent-memory-hall",
@@ -55,6 +67,92 @@ export function createAmhServer(context: AmhServerContext) {
   };
 
   registerAmhResources(server, store, readCtx);
+
+  server.tool(
+    "amh_register_principal",
+    "Register a Layer 3 identity principal in the SQLite identity store",
+    {
+      principal_id: z.string().describe("Principal ID, e.g. human:maki or agent:planner"),
+      principal_type: z.enum(["human", "agent", "system"]).describe("Principal type"),
+      display_name: z.string().optional().describe("Human-readable display name"),
+    },
+    async (params) => {
+      try {
+        if (!identityStore) {
+          throw new Error("Identity store is unavailable for this backend");
+        }
+        const result = await registerPrincipal(
+          params.principal_id,
+          params.principal_type as PrincipalType,
+          params.display_name,
+          identityStore,
+        );
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+        };
+      } catch (err) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                {
+                  error: err instanceof Error ? err.message : String(err),
+                  error_type: err instanceof Error ? err.name : "Error",
+                },
+                null,
+                2
+              ),
+            },
+          ],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    "amh_authorize",
+    "Check whether a Layer 3 principal has a namespace permission",
+    {
+      principal_id: z.string().describe("Principal ID to authorize"),
+      namespace_id: z.string().describe("Namespace ID"),
+      permission: z.enum(["read", "write", "transfer", "admin"]).describe("Permission to check"),
+    },
+    async (params) => {
+      try {
+        if (!identityStore) {
+          throw new Error("Identity store is unavailable for this backend");
+        }
+        const result = await authorize(
+          params.principal_id,
+          params.namespace_id,
+          params.permission as GrantPermission,
+          identityStore,
+        );
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+        };
+      } catch (err) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                {
+                  error: err instanceof Error ? err.message : String(err),
+                  error_type: err instanceof Error ? err.name : "Error",
+                },
+                null,
+                2
+              ),
+            },
+          ],
+          isError: true,
+        };
+      }
+    }
+  );
 
   server.tool(
     "amh_write",
@@ -343,6 +441,11 @@ export function createAmhServer(context: AmhServerContext) {
           },
           store,
           { callerNamespace },
+          {
+            enabled: identity.enabled,
+            enforceHumanTier: identity.enforceHumanTier,
+            identityStore,
+          },
         );
         return {
           content: [
@@ -428,6 +531,11 @@ export function createAmhServer(context: AmhServerContext) {
                   anti_ouroboros: governance.antiOuroboros,
                   namespace_isolation: governance.namespaceIsolation,
                   write_gate: governance.writeGate,
+                },
+                identity: {
+                  enabled: identity.enabled,
+                  enforce_human_tier: identity.enforceHumanTier,
+                  store_available: Boolean(identityStore),
                 },
               },
               null,

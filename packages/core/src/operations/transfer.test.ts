@@ -86,6 +86,10 @@ describe("transfer source authorization", () => {
     assert.ok(transferred);
     assert.equal(transferred.agent_id, "agent-b");
     assert.equal(transferred.content.value, "shared fact");
+    assert.equal(transferred.provenance_chain?.origin.memory_id, source.memory_id);
+    assert.equal(transferred.provenance_chain?.transitions[0]?.type, "transfer");
+    assert.equal(transferred.provenance_chain?.transitions[0]?.from_memory_id, source.memory_id);
+    assert.equal(transferred.provenance_chain?.transitions[0]?.to_memory_id, result.new_memory_id);
 
     unlinkSync(dbPath);
   });

@@ -12,7 +12,10 @@ import { transferMemory } from "./operations/transfer.js";
 import { tierUpgrade } from "./operations/tier-upgrade.js";
 import { importUmpFile, exportUmpFile } from "./import/ump.js";
 import { importMem0File } from "./import/mem0.js";
-import { resolveGovernance } from "./config.js";
+import { resolveGovernance, resolveIdentityConfig } from "./config.js";
+import type { AmhServerContext } from "./mcp/server.js";
+import { registerPrincipal } from "./identity/operations.js";
+import type { PrincipalType } from "./identity/types.js";
 
 function parseGlobalOpts(args: string[]): { command: string; rest: string[]; opts: ServerOptions } {
   const opts: ServerOptions = {};
@@ -85,6 +88,8 @@ Usage:
   amh export --to ump --out <file> [--ns <namespace>]
   amh transfer --id <memory_id> --agent <id> --ns <namespace> --by <agent>
   amh tier-upgrade --id <memory_id> --tier <tier> --by <agent> [--method <method>]
+  amh principal register --id <id> --type <human|agent|system> [--name <display>]
+  amh principal list
   amh forget --id <memory_id> --by <agent> [--reason <text>]
   amh expire --id <memory_id> --by <agent> [--reason <text>]
   amh audit --id <memory_id>
@@ -117,6 +122,7 @@ Read options:
 Examples:
   amh write --agent planner --ns project:acme --type fact "Use PostgreSQL"
   amh read --ns project:acme --type fact
+  amh principal register --id human:maki --type human --name Maki
   amh import --from ump ./memory.ump.json
   amh --store postgres --path postgres://amh:amh@localhost:5432/amh serve
 
@@ -130,6 +136,13 @@ MCP config:
     }
   }
 `);
+}
+
+function requireIdentityStore(ctx: AmhServerContext) {
+  if (!ctx.identityStore) {
+    throw new Error("Identity store is only available with the SQLite backend");
+  }
+  return ctx.identityStore;
 }
 
 async function cmdWrite(args: string[], opts: ServerOptions): Promise<void> {
@@ -375,6 +388,7 @@ async function cmdTierUpgrade(args: string[], opts: ServerOptions): Promise<void
   }
 
   const ctx = await createAmhContext(opts);
+  const identity = resolveIdentityConfig(ctx.config);
   const result = await tierUpgrade(
     id,
     tier,
@@ -387,8 +401,45 @@ async function cmdTierUpgrade(args: string[], opts: ServerOptions): Promise<void
     },
     ctx.store,
     { callerNamespace: opts.callerNamespace ?? ctx.callerNamespace },
+    {
+      enabled: identity.enabled,
+      enforceHumanTier: identity.enforceHumanTier,
+      identityStore: ctx.identityStore,
+    },
   );
   console.log(JSON.stringify(result, null, 2));
+}
+
+async function cmdPrincipal(args: string[], opts: ServerOptions): Promise<void> {
+  const subcommand = args[0];
+  const ctx = await createAmhContext(opts);
+  const identityStore = requireIdentityStore(ctx);
+
+  if (subcommand === "register") {
+    const id = flagValue(args, "--id");
+    const type = flagValue(args, "--type") as PrincipalType | undefined;
+    const name = flagValue(args, "--name");
+    if (!id || !type || !["human", "agent", "system"].includes(type)) {
+      console.error("Usage: amh principal register --id <id> --type <human|agent|system> [--name <display>]");
+      process.exit(1);
+    }
+
+    const result = await registerPrincipal(id, type, name, identityStore);
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  if (subcommand === "list") {
+    if ("listPrincipals" in identityStore && typeof identityStore.listPrincipals === "function") {
+      console.log(JSON.stringify(await identityStore.listPrincipals(), null, 2));
+      return;
+    }
+    console.log(JSON.stringify([], null, 2));
+    return;
+  }
+
+  console.error("Usage: amh principal <register|list>");
+  process.exit(1);
 }
 
 async function cmdAudit(args: string[], opts: ServerOptions): Promise<void> {
@@ -524,6 +575,11 @@ if (command === "--help" || command === "-h" || rawArgs.includes("--help") || ra
   });
 } else if (command === "tier-upgrade") {
   cmdTierUpgrade(rest, opts).catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+} else if (command === "principal") {
+  cmdPrincipal(rest, opts).catch((err) => {
     console.error(err);
     process.exit(1);
   });

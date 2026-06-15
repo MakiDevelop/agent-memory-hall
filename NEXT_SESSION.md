@@ -1,29 +1,43 @@
 # Next Session — Agent Memory Hall
 
-> Last updated: 2026-06-15 (ACA v0.1 + AMH v0.7.0 schema foundation)
+> Last updated: 2026-06-15 (AMH v0.7.2 + ACA Layer 3 Identity in progress)
 
-## Immediate (v0.7.0 → v1.0)
+## Done (this session)
 
-1. **npm publish 0.7.0** — `cd packages/core && npm publish --access public`（需 OTP）
-2. **SQLite `patchTier` 實作** — 三兄弟一致指出缺失，目前 tier-upgrade 在 SQLite store 會 throw
-3. **MCP `amh_tier_upgrade` tool** — agent 無法透過 MCP 觸發 tier upgrade
-4. **CLI `tier-upgrade` command** — 對齊其他 CLI commands
-5. **`TrustProofSchema.parse` 完整驗證** — 目前只檢查 confirmed_by/confirmed_at
-6. **tier-upgrade 單元測試** — 目前 0 test coverage
+1. ~~SQLite/Postgres `patchTier`~~ ✅
+2. ~~MCP `amh_tier_upgrade` tool~~ ✅
+3. ~~CLI `tier-upgrade` command~~ ✅
+4. ~~TrustProofSchema.parse 完整驗證 (.min(1) + Zod)~~ ✅
+5. ~~tier-upgrade 單元測試 (12 tests)~~ ✅
+6. ~~decision→fact migration + content_hash rehash~~ ✅
+7. ~~expire operation + MCP + CLI~~ ✅
+8. ~~ProvenanceChain writing (tier-upgrade/transfer/supersede)~~ ✅
+9. ~~trust_proof/provenance_chain persistence (new columns)~~ ✅
+10. ~~JsonFileStore/MemhallStore decision→fact fallback~~ ✅
+11. ~~npm 0.7.1 + 0.7.2 published~~ ✅
+12. ~~ACA conformance tests 14/14 (Layer 1: 8 + Layer 2: 5 + cross: 1)~~ ✅
+13. ~~ACA Layer 3 Identity spec~~ ✅
+14. ~~ACA Layer 3 conformance tests (5 files)~~ ✅
 
-## Migration (Breaking Changes in v0.7.0)
+## In Progress
 
-- `content_hash` 算法變更：`hash(value)` → `hash(format:value)` — 既有 DB dedup index 需 rehash
-- `memory_type: "decision"` 移除 — SQLite/Postgres 舊 records 讀取可能 Zod fail
-- `AuditEvent.agent_id` → `principal_id` — DB column 仍叫 agent_id，adapter 做 mapping
+- **AMH Layer 3 Identity adapter** — Principal registry + auth + ACL (→ v0.8.0)
 
-## Dogfooding 影響
+## Grok P1 Fast Follow
 
-- `~/.amh/memory.db` — 既有 records 的 content_hash 跟新算法不一致
-- `.amh/handoff.json` — 仍可讀取（backward compat），新寫入用新 hash
-- MCP server 重啟後用新版 — 舊 decision type records 需手動改 fact
+- Atomic tier-upgrade (wrap patchTier + provenance in single transaction)
+- ProvenanceChain origin at initial write (not just on first transition)
 
-## ACA Reference Implementation
+## ACA Next
 
-本 repo 是 Agent Civilization Architecture (ACA) 的 Layer 1-2 reference implementation。
-ACA spec: https://github.com/MakiDevelop/agent-civilization-architecture
+- Layer 4 Authority spec + conformance tests
+- Layer 5 Decision spec
+- Governance Plane spec
+- AMH adapter for ACA conformance test runner (wire AcaTestAdapter to AMH)
+
+## Publication
+
+- **X thread** — 草稿在 `~/Documents/agent-council/aca-review/x-thread-draft.md`
+- **NeurIPS SEA 2026** — abstract deadline ~Sep 2026
+- **WMAC @ AAAI 2027** — position paper deadline ~Oct 2026
+- **COINE @ AAMAS 2027** — full paper deadline ~Feb 2027

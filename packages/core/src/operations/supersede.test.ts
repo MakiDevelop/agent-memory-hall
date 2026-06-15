@@ -79,7 +79,7 @@ describe("supersede authorization", () => {
       { callerNamespace: "project:acme" }
     );
 
-    await writeMemory(
+    const replacement = await writeMemory(
       {
         agent_id: "agent-b",
         namespace: "project:acme",
@@ -108,6 +108,15 @@ describe("supersede authorization", () => {
       filterInactive: false,
     });
     assert.equal(parent?.status, "superseded");
+
+    const child = await readMemory(replacement.memory_id, store, {
+      callerNamespace: "project:acme",
+      namespaceIsolation: true,
+    });
+    assert.equal(child?.provenance_chain?.origin.memory_id, original.memory_id);
+    assert.equal(child?.provenance_chain?.transitions[0]?.type, "supersede");
+    assert.equal(child?.provenance_chain?.transitions[0]?.from_memory_id, original.memory_id);
+    assert.equal(child?.provenance_chain?.transitions[0]?.to_memory_id, replacement.memory_id);
 
     unlinkSync(dbPath);
   });

@@ -4,6 +4,7 @@ import { TrustProofSchema } from "../schema/types.js";
 import type { TrustProof, SourceTier } from "../schema/types.js";
 import { readMemory } from "./read.js";
 import { appendProvenanceTransition } from "./provenance.js";
+import type { IdentityStore } from "../identity/store.js";
 
 const TIER_ORDER: Record<string, number> = {
   raw_source: 0,
@@ -31,12 +32,19 @@ export interface TierUpgradeResult {
   new_tier: SourceTier;
 }
 
+export interface TierUpgradeIdentityContext {
+  enabled?: boolean;
+  enforceHumanTier?: boolean;
+  identityStore?: IdentityStore;
+}
+
 export async function tierUpgrade(
   memoryId: string,
   newTier: SourceTier,
   trustProof: TrustProof,
   store: AmhStore,
   readContext?: { callerNamespace?: string },
+  identityContext?: TierUpgradeIdentityContext,
 ): Promise<TierUpgradeResult> {
   const record = await readMemory(memoryId, store, {
     ...readContext,
@@ -68,6 +76,26 @@ export async function tierUpgrade(
   }
 
   const proof = parsed.data;
+  if (
+    newTier === "human_confirmed" &&
+    identityContext?.enabled &&
+    (identityContext.enforceHumanTier ?? true)
+  ) {
+    if (!identityContext.identityStore) {
+      throw new InvalidTrustProofError("Identity enforcement requires an identity store");
+    }
+    const principal = await identityContext.identityStore.getPrincipal(proof.confirmed_by);
+    if (!principal) {
+      throw new InvalidTrustProofError(`confirmed_by principal not found: ${proof.confirmed_by}`);
+    }
+    if (principal.status !== "active") {
+      throw new InvalidTrustProofError(`confirmed_by principal is not active: ${principal.status}`);
+    }
+    if (principal.principal_type !== "human") {
+      throw new InvalidTrustProofError("human_confirmed upgrade requires confirmed_by to be a human principal");
+    }
+  }
+
   const now = new Date().toISOString();
 
   if (store.patchTier) {

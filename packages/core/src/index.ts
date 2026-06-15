@@ -20,7 +20,8 @@ export { expireMemory } from "./operations/expire.js";
 export type { ExpireInput, ExpireResult } from "./operations/expire.js";
 export { getAuditLog } from "./operations/audit.js";
 export { tierUpgrade, TierDowngradeError, InvalidTrustProofError } from "./operations/tier-upgrade.js";
-export type { TierUpgradeResult } from "./operations/tier-upgrade.js";
+export type { TierUpgradeIdentityContext, TierUpgradeResult } from "./operations/tier-upgrade.js";
+export * from "./identity/index.js";
 export { createAmhServer, createAmhContext, startServer } from "./mcp/server.js";
 export type { ServerOptions, AmhServerContext } from "./mcp/server.js";
 export { registerAmhResources } from "./mcp/resources.js";
@@ -28,11 +29,12 @@ export { convertUmpToAmh, convertAmhToUmp, importUmpFile, exportUmpFile } from "
 export { convertMem0ToAmh, importMem0File } from "./import/mem0.js";
 export {
   loadConfig,
+  resolveIdentityConfig,
   resolveGovernance,
   defaultConfigPath,
   ConfigLoadError,
 } from "./config.js";
-export type { AmhConfig, ResolvedGovernance } from "./config.js";
+export type { AmhConfig, ResolvedGovernance, ResolvedIdentityConfig } from "./config.js";
 export { computeContentHash } from "./governance/dedup.js";
 export { applyLifecycleFilter, isExpired, isInactive } from "./governance/lifecycle.js";
 export { enforceNamespaceIsolation, NamespaceViolationError } from "./governance/namespace.js";
