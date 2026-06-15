@@ -16,16 +16,17 @@ jobs:
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: packages/core/package-lock.json
+          cache-dependency-path: package-lock.json
 
       - name: Install dependencies
-        working-directory: packages/core
         run: npm ci
 
       - name: Typecheck
-        working-directory: packages/core
         run: npm run check
 
       - name: Test
-        working-directory: packages/core
         run: npm test
+
+      - name: Verify npm pack excludes tests
+        working-directory: packages/core
+        run: npm run verify-pack

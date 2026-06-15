@@ -8,5 +8,7 @@ build/
 *.egg-info/
 node_modules/
 .amh/
+.review*.diff
+.review-diff.txt
 dist/
 *.tsbuildinfo

@@ -112,11 +112,11 @@ Resources: `amh://{namespace}/{memory_id}`
 
 ## Codex Handoff
 
-See [docs/codex-handoff.md](docs/codex-handoff.md) for local CLI dogfooding (no memhall HTTP / no bearer token).
+See [packages/core/docs/codex-handoff.md](packages/core/docs/codex-handoff.md) for local CLI dogfooding (no memhall HTTP / no bearer token).
 
 ## Status
 
-**v0.5.0 — Reference Implementation (dogfooding)**
+**v0.5.1 — Reference Implementation (dogfooding)**
 
 - npm: `@chibakuma/agent-memory-hall`
 - Stores: SQLite (default) / PostgreSQL / JSON / memhall

@@ -4,6 +4,8 @@ MCP-native memory server with built-in governance for AI agents.
 
 Full documentation: [repository README](../../README.md)
 
+Codex handoff: [docs/codex-handoff.md](./docs/codex-handoff.md)
+
 ```bash
 npx @chibakuma/agent-memory-hall
 ```

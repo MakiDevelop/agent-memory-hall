@@ -92,6 +92,11 @@ If `amh` is not in PATH: `npm link` from `packages/core` or `npx @chibakuma/agen
 
 ## Acceptance
 
-- [ ] `amh read --agent codex` returns handoff written in same session
-- [ ] No `curl` to `:9100` / no `MH_API_TOKEN`
-- [ ] Cross-namespace read returns empty / write rejected
+Run the acceptance briefing shipped with this package:
+
+```bash
+codex exec --sandbox workspace-write --skip-git-repo-check \
+  < node_modules/@chibakuma/agent-memory-hall/docs/codex-acceptance-briefing.md
+```
+
+Or from the git repo: `docs/codex-acceptance-briefing.md`
