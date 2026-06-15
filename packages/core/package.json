@@ -1,6 +1,6 @@
 {
   "name": "@chibakuma/agent-memory-hall",
-  "version": "0.6.4",
+  "version": "0.6.5",
   "description": "MCP-native memory server with built-in governance for AI agents",
   "type": "module",
   "main": "dist/index.js",
@@ -21,7 +21,8 @@
     "dev": "tsc --watch",
     "start": "node dist/mcp/server.js",
     "check": "tsc --noEmit",
-    "test": "tsc && node --test $(find dist -name '*.test.js')",
+    "test": "tsc && node --test $(find dist -name '*.test.js' ! -name '*.integration.test.js')",
+    "test:contract": "tsc && node --test $(find dist -name '*.integration.test.js')",
     "verify-pack": "npm run build && npm pack --dry-run 2>&1 | tee /tmp/amh-pack.log && ! grep -E 'dist/.*\\.test\\.' /tmp/amh-pack.log",
     "prepublishOnly": "npm run check && npm run build && npm run verify-pack"
   },

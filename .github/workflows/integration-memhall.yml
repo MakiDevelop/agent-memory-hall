@@ -1,0 +1,55 @@
+name: Integration (memory-hall)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/checkout@v4
+        with:
+          repository: MakiDevelop/memory-hall
+          path: memory-hall
+
+      - uses: astral-sh/setup-uv@v4
+        with:
+          version: "0.5.11"
+
+      - name: Install memory-hall
+        working-directory: memory-hall
+        run: uv sync --frozen --all-extras
+
+      - name: Start contract test server
+        working-directory: memory-hall
+        run: |
+          uv run python scripts/contract_test_server.py &
+          for i in $(seq 1 30); do
+            curl -sf http://127.0.0.1:19100/v1/health && break
+            sleep 1
+          done
+          curl -sf http://127.0.0.1:19100/v1/health
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install AMH
+        run: npm ci
+
+      - name: memory-hall AMH contract (pytest)
+        working-directory: memory-hall
+        run: uv run pytest tests/test_amh_contract.py tests/test_lookup_hash.py -q
+
+      - name: AMH live contract (node)
+        working-directory: packages/core
+        env:
+          MEMHALL_CONTRACT_URL: http://127.0.0.1:19100
+          MH_API_TOKEN: contract-test-token
+        run: npm run test:contract

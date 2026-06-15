@@ -97,13 +97,11 @@ Track fixes in paired releases tagged `integration:memhall-amh`.
 
 **Shipped:** `PATCH /v1/memory/{entry_id}` shallow-merge; AMH `revokeMemory` / supersede call `patchMetadata`.
 
-### P1 — Hash namespace mismatch — **partial (0.6.3)**
+### P1 — Hash namespace mismatch — **fixed in AMH 0.6.5**
 
-- AMH dedup: BLAKE3 hex, per-namespace via `findByContentHash`.
-- memory-hall dedup: `sha256:` prefix, per-tenant.
-- `MemhallStore.findByContentHash` compares AMH hash to memhall `content_hash` — **never matches**.
-
-**Shipped:** `metadata.amh_content_hash` on memhall writes. Engine-side hash lookup still open.
+- AMH dedup: BLAKE3 via `findByContentHash` → `GET /v1/memory/by-amh-hash`
+- memory-hall insert dedup: `sha256:` content hash (unchanged)
+- `metadata.amh_content_hash` written on every AMH memhall put
 
 ### P1 — Supersedes not linked — **fixed in AMH 0.6.4**
 
@@ -145,10 +143,10 @@ Run monthly or before any `MemhallStore` behavior change:
 2. `amh read --text "…"` documented as memhall hybrid search path.
 3. Store `metadata.amh_content_hash` for cross-hash dedup visibility.
 
-### Phase 3 — CI contract test
+### Phase 3 — CI contract test — **shipped (0.6.5)**
 
-1. `docker compose` memory-hall in AMH integration test job.
-2. Matrix: sqlite (unit) + memhall (integration), 41 + N tests.
+1. `integration-memhall.yml` on `main`: contract server + pytest + AMH `test:contract`
+2. PRs: mocked unit tests only (fast). Engine `amh_status` filter **deferred** (AMH read layer).
 
 **Out of scope:** merging repos, putting write-gate inside memory-hall, or making memhall HTTP mandatory for agents.
 

@@ -196,16 +196,15 @@ export class MemhallStore implements AmhStore {
   }
 
   async findByContentHash(namespace: string, contentHash: string): Promise<AmhRecord | null> {
-    const result = await this.api<MemhallSearchResult>("POST", "/v1/memory/search", {
-      mode: "hybrid",
-      namespace,
-      query: namespace,
-      limit: 50,
-    });
-    const match = result.results.find(
-      (r) => r.entry.content_hash === contentHash && r.entry.namespace === namespace
-    );
-    return match ? entryToAmh(match.entry) : null;
+    try {
+      const lookup = await this.api<{ entry: MemhallEntry }>(
+        "GET",
+        `/v1/memory/by-amh-hash?namespace=${encodeURIComponent(namespace)}&hash=${encodeURIComponent(contentHash)}`
+      );
+      return entryToAmh(lookup.entry);
+    } catch {
+      return null;
+    }
   }
 
   async query(filter: AmhQuery): Promise<AmhRecord[]> {

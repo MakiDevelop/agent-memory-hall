@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.5 — 2026-06-15
+
+### Added (`integration:memhall-amh` Phase 3)
+- `MemhallStore.findByContentHash` uses `GET /v1/memory/by-amh-hash`
+- Live contract test `memhall-contract.integration.test.ts` + CI job `integration-memhall.yml`
+
 ## 0.6.4 — 2026-06-15
 
 ### Added (`integration:memhall-amh` Phase 2)
