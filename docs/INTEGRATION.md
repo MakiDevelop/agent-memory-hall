@@ -163,16 +163,21 @@ Run monthly or before any `MemhallStore` behavior change:
 
 Shared facts: `amh-handoff/SHARED.md`. Project namespace: `project:agent-memory-hall`.
 
-To use engine backend:
+### Maki home lab topology
+
+| Role | Host | URL |
+|------|------|-----|
+| Primary | Mac mini M4 #2 | `http://100.89.41.50:9100` |
+| Standby | Mac mini M4 #1 | `http://100.122.171.74:9100` |
+
+Agents use **primary** unless failover. Always via AMH adapter, not raw HTTP.
 
 ```bash
 export MH_API_TOKEN="$(cat ~/.config/memhall/token)"
-amh --store memhall --path http://127.0.0.1:9100 \
+amh --store memhall --path http://100.89.41.50:9100 \
   --caller-ns project:agent-memory-hall \
   write --agent claude --ns project:agent-memory-hall --type fact "…"
 ```
-
-Until P0 fixes ship, prefer **sqlite for writes** and memhall for **search-only** via `mh search` / HTTP if needed.
 
 ---
 
