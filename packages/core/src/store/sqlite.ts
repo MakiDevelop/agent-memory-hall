@@ -4,7 +4,7 @@ import { dirname } from "node:path";
 import { homedir } from "node:os";
 import { join } from "node:path";
 import type { AmhStore } from "./interface.js";
-import type { AmhRecord, AuditEvent, AmhQuery, SourceTier, TrustProof } from "../schema/types.js";
+import type { AmhRecord, AuditEvent, AmhQuery, ProvenanceChain, SourceTier, TrustProof } from "../schema/types.js";
 
 export class SqliteStore implements AmhStore {
   private db: Database.Database;
@@ -40,7 +40,9 @@ export class SqliteStore implements AmhStore {
         created_by TEXT NOT NULL,
         valid_until TEXT,
         supersedes TEXT,
-        content_hash TEXT
+        content_hash TEXT,
+        trust_proof TEXT,
+        provenance_chain TEXT
       );
 
       CREATE INDEX IF NOT EXISTS idx_memories_namespace ON memories(namespace);
@@ -60,6 +62,20 @@ export class SqliteStore implements AmhStore {
 
       CREATE INDEX IF NOT EXISTS idx_audit_memory ON audit_log(memory_id);
     `);
+    this.addColumnIfMissing("memories", "trust_proof", "TEXT");
+    this.addColumnIfMissing("memories", "provenance_chain", "TEXT");
+  }
+
+  private addColumnIfMissing(table: string, column: string, definition: string): void {
+    const columns = this.db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+    if (!columns.some((c) => c.name === column)) {
+      this.db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    }
+  }
+
+  private parseJson<T>(value: string | null | undefined): T | undefined {
+    if (!value) return undefined;
+    return JSON.parse(value) as T;
   }
 
   private toRecord(row: any): AmhRecord {
@@ -78,6 +94,8 @@ export class SqliteStore implements AmhStore {
       valid_until: row.valid_until ?? undefined,
       supersedes: row.supersedes ?? undefined,
       content_hash: row.content_hash ?? undefined,
+      trust_proof: this.parseJson<TrustProof>(row.trust_proof),
+      provenance_chain: this.parseJson<ProvenanceChain>(row.provenance_chain),
     };
   }
 
@@ -86,11 +104,11 @@ export class SqliteStore implements AmhStore {
       INSERT OR REPLACE INTO memories
         (memory_id, amh_version, version, status, agent_id, namespace, memory_type,
          content_format, content_value, source_type, source_ref, source_tier,
-         created_at, created_by, valid_until, supersedes, content_hash)
+         created_at, created_by, valid_until, supersedes, content_hash, trust_proof, provenance_chain)
       VALUES
         (@memory_id, @amh_version, @version, @status, @agent_id, @namespace, @memory_type,
          @content_format, @content_value, @source_type, @source_ref, @source_tier,
-         @created_at, @created_by, @valid_until, @supersedes, @content_hash)
+         @created_at, @created_by, @valid_until, @supersedes, @content_hash, @trust_proof, @provenance_chain)
     `);
     stmt.run({
       memory_id: record.memory_id,
@@ -110,11 +128,37 @@ export class SqliteStore implements AmhStore {
       valid_until: record.valid_until ?? null,
       supersedes: record.supersedes ?? null,
       content_hash: record.content_hash ?? null,
+      trust_proof: record.trust_proof ? JSON.stringify(record.trust_proof) : null,
+      provenance_chain: record.provenance_chain ? JSON.stringify(record.provenance_chain) : null,
     });
   }
 
-  async patchTier(memoryId: string, newTier: SourceTier, _trustProof: TrustProof): Promise<void> {
-    this.db.prepare("UPDATE memories SET source_tier = ? WHERE memory_id = ?").run(newTier, memoryId);
+  async patchMetadata(memoryId: string, metadata: Record<string, unknown>): Promise<void> {
+    const sets: string[] = [];
+    const params: Record<string, unknown> = { memory_id: memoryId };
+
+    const mapping: Record<string, string> = {
+      amh_status: "status",
+      amh_version: "amh_version",
+      source_tier: "source_tier",
+      trust_proof: "trust_proof",
+      provenance_chain: "provenance_chain",
+    };
+
+    for (const [key, column] of Object.entries(mapping)) {
+      if (key in metadata) {
+        sets.push(`${column} = @${column}`);
+        params[column] = metadata[key];
+      }
+    }
+
+    if (sets.length === 0) return;
+    this.db.prepare(`UPDATE memories SET ${sets.join(", ")} WHERE memory_id = @memory_id`).run(params);
+  }
+
+  async patchTier(memoryId: string, newTier: SourceTier, trustProof: TrustProof): Promise<void> {
+    this.db.prepare("UPDATE memories SET source_tier = ?, trust_proof = ? WHERE memory_id = ?")
+      .run(newTier, JSON.stringify(trustProof), memoryId);
   }
 
   async get(memoryId: string): Promise<AmhRecord | null> {

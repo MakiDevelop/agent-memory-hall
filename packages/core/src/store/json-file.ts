@@ -57,6 +57,13 @@ export class JsonFileStore implements AmhStore {
     });
   }
 
+  private normalizeRecord(record: AmhRecord): AmhRecord {
+    return {
+      ...record,
+      memory_type: (record.memory_type as string) === "decision" ? "fact" : record.memory_type,
+    } as AmhRecord;
+  }
+
   async put(record: AmhRecord): Promise<void> {
     await this.locked(async () => {
       const idx = this.data.records.findIndex(
@@ -71,21 +78,22 @@ export class JsonFileStore implements AmhStore {
   }
 
   async get(memoryId: string): Promise<AmhRecord | null> {
-    return this.readLocked(
-      () => this.data.records.find((r) => r.memory_id === memoryId) ?? null
-    );
+    return this.readLocked(() => {
+      const record = this.data.records.find((r) => r.memory_id === memoryId);
+      return record ? this.normalizeRecord(record) : null;
+    });
   }
 
   async findByContentHash(namespace: string, contentHash: string): Promise<AmhRecord | null> {
-    return this.readLocked(
-      () =>
-        this.data.records.find(
-          (r) =>
-            r.namespace === namespace &&
-            r.content_hash === contentHash &&
-            r.status === "active"
-        ) ?? null
-    );
+    return this.readLocked(() => {
+      const record = this.data.records.find(
+        (r) =>
+          r.namespace === namespace &&
+          r.content_hash === contentHash &&
+          r.status === "active"
+      );
+      return record ? this.normalizeRecord(record) : null;
+    });
   }
 
   async query(filter: AmhQuery): Promise<AmhRecord[]> {
@@ -99,7 +107,12 @@ export class JsonFileStore implements AmhStore {
       results = results.filter((r) => r.namespace === filter.namespace);
     }
     if (filter.memory_type) {
-      results = results.filter((r) => r.memory_type === filter.memory_type);
+      results = results.filter((r) => {
+        if (filter.memory_type === "fact") {
+          return r.memory_type === "fact" || (r.memory_type as string) === "decision";
+        }
+        return r.memory_type === filter.memory_type;
+      });
     }
     if (filter.agent_id) {
       results = results.filter((r) => r.agent_id === filter.agent_id);
@@ -120,7 +133,7 @@ export class JsonFileStore implements AmhStore {
       results = results.slice(0, filter.limit);
     }
 
-    return results;
+    return results.map((r) => this.normalizeRecord(r));
     });
   }
 
@@ -137,9 +150,9 @@ export class JsonFileStore implements AmhStore {
   async list(namespace?: string): Promise<AmhRecord[]> {
     return this.readLocked(() => {
       if (namespace) {
-        return this.data.records.filter((r) => r.namespace === namespace);
+        return this.data.records.filter((r) => r.namespace === namespace).map((r) => this.normalizeRecord(r));
       }
-      return [...this.data.records];
+      return this.data.records.map((r) => this.normalizeRecord(r));
     });
   }
 

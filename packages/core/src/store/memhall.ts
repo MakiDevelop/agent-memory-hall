@@ -50,6 +50,8 @@ function amhStatusFromMeta(meta: Record<string, unknown>): AmhRecord["status"] {
 
 function entryToAmh(entry: MemhallEntry): AmhRecord {
   const meta = entry.metadata ?? {};
+  const trustProof = typeof meta.trust_proof === "string" ? JSON.parse(meta.trust_proof) : meta.trust_proof;
+  const provenanceChain = typeof meta.provenance_chain === "string" ? JSON.parse(meta.provenance_chain) : meta.provenance_chain;
   return {
     amh_version: "0.1",
     memory_id: entry.entry_id,
@@ -70,6 +72,8 @@ function entryToAmh(entry: MemhallEntry): AmhRecord {
     created_at: entry.created_at,
     created_by: entry.created_by_principal,
     content_hash: entry.content_hash,
+    trust_proof: trustProof as AmhRecord["trust_proof"],
+    provenance_chain: provenanceChain as AmhRecord["provenance_chain"],
   };
 }
 
@@ -101,6 +105,8 @@ function amhMetadataFromRecord(record: AmhRecord): Record<string, unknown> {
     valid_until: record.valid_until,
     supersedes: record.supersedes,
     amh_content_hash: computeContentHash(record.content.format, record.content.value),
+    trust_proof: record.trust_proof ? JSON.stringify(record.trust_proof) : undefined,
+    provenance_chain: record.provenance_chain ? JSON.stringify(record.provenance_chain) : undefined,
   };
 }
 

@@ -9,6 +9,7 @@ import { writeMemory } from "../operations/write.js";
 import { readMemory, queryMemories } from "../operations/read.js";
 import { transferMemory } from "../operations/transfer.js";
 import { revokeMemory } from "../operations/revoke.js";
+import { expireMemory } from "../operations/expire.js";
 import { tierUpgrade } from "../operations/tier-upgrade.js";
 import { getAuditLog } from "../operations/audit.js";
 import { registerAmhResources } from "./resources.js";
@@ -234,6 +235,55 @@ export function createAmhServer(context: AmhServerContext) {
           {
             memory_id: params.memory_id,
             revoked_by: params.revoked_by,
+            reason: params.reason,
+          },
+          store,
+          gateConfig,
+          { callerNamespace }
+        );
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(result, null, 2),
+            },
+          ],
+        };
+      } catch (err) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify(
+                {
+                  error: err instanceof Error ? err.message : String(err),
+                  error_type: err instanceof Error ? err.name : "Error",
+                },
+                null,
+                2
+              ),
+            },
+          ],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    "amh_expire",
+    "Expire a memory: marks status expired, appends audit, hides from default reads",
+    {
+      memory_id: z.string().describe("ID of memory to expire"),
+      expired_by: z.string().describe("Agent performing the expiration"),
+      reason: z.string().optional().describe("Optional reason for audit trail"),
+    },
+    async (params) => {
+      try {
+        const result = await expireMemory(
+          {
+            memory_id: params.memory_id,
+            expired_by: params.expired_by,
             reason: params.reason,
           },
           store,

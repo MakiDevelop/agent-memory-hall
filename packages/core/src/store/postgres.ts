@@ -1,6 +1,6 @@
 import pg from "pg";
 import type { AmhStore } from "./interface.js";
-import type { AmhRecord, AuditEvent, AmhQuery, SourceTier, TrustProof } from "../schema/types.js";
+import type { AmhRecord, AuditEvent, AmhQuery, ProvenanceChain, SourceTier, TrustProof } from "../schema/types.js";
 
 export class PostgresStore implements AmhStore {
   private pool: pg.Pool;
@@ -32,8 +32,13 @@ export class PostgresStore implements AmhStore {
           created_by TEXT NOT NULL,
           valid_until TEXT,
           supersedes TEXT,
-          content_hash TEXT
+          content_hash TEXT,
+          trust_proof TEXT,
+          provenance_chain TEXT
         );
+
+        ALTER TABLE memories ADD COLUMN IF NOT EXISTS trust_proof TEXT;
+        ALTER TABLE memories ADD COLUMN IF NOT EXISTS provenance_chain TEXT;
 
         CREATE INDEX IF NOT EXISTS idx_pg_memories_namespace ON memories(namespace);
         CREATE INDEX IF NOT EXISTS idx_pg_memories_type ON memories(memory_type);
@@ -74,6 +79,8 @@ export class PostgresStore implements AmhStore {
       valid_until: row.valid_until ?? undefined,
       supersedes: row.supersedes ?? undefined,
       content_hash: row.content_hash ?? undefined,
+      trust_proof: row.trust_proof ? JSON.parse(row.trust_proof) as TrustProof : undefined,
+      provenance_chain: row.provenance_chain ? JSON.parse(row.provenance_chain) as ProvenanceChain : undefined,
     };
   }
 
@@ -83,12 +90,13 @@ export class PostgresStore implements AmhStore {
       `INSERT INTO memories
         (memory_id, amh_version, version, status, agent_id, namespace, memory_type,
          content_format, content_value, source_type, source_ref, source_tier,
-         created_at, created_by, valid_until, supersedes, content_hash)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+         created_at, created_by, valid_until, supersedes, content_hash, trust_proof, provenance_chain)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
        ON CONFLICT (memory_id) DO UPDATE SET
          amh_version=$2, version=$3, status=$4, agent_id=$5, namespace=$6, memory_type=$7,
          content_format=$8, content_value=$9, source_type=$10, source_ref=$11, source_tier=$12,
-         created_at=$13, created_by=$14, valid_until=$15, supersedes=$16, content_hash=$17`,
+         created_at=$13, created_by=$14, valid_until=$15, supersedes=$16, content_hash=$17,
+         trust_proof=$18, provenance_chain=$19`,
       [
         record.memory_id, record.amh_version, record.version, record.status,
         record.agent_id, record.namespace, record.memory_type,
@@ -96,13 +104,42 @@ export class PostgresStore implements AmhStore {
         record.source.type, record.source.ref, record.source.tier,
         record.created_at, record.created_by,
         record.valid_until ?? null, record.supersedes ?? null, record.content_hash ?? null,
+        record.trust_proof ? JSON.stringify(record.trust_proof) : null,
+        record.provenance_chain ? JSON.stringify(record.provenance_chain) : null,
       ]
     );
   }
 
-  async patchTier(memoryId: string, newTier: SourceTier, _trustProof: TrustProof): Promise<void> {
+  async patchMetadata(memoryId: string, metadata: Record<string, unknown>): Promise<void> {
     await this.ensureMigrated();
-    await this.pool.query("UPDATE memories SET source_tier = $1 WHERE memory_id = $2", [newTier, memoryId]);
+    const sets: string[] = [];
+    const params: unknown[] = [];
+    const mapping: Record<string, string> = {
+      amh_status: "status",
+      amh_version: "amh_version",
+      source_tier: "source_tier",
+      trust_proof: "trust_proof",
+      provenance_chain: "provenance_chain",
+    };
+
+    for (const [key, column] of Object.entries(mapping)) {
+      if (key in metadata) {
+        params.push(metadata[key]);
+        sets.push(`${column} = $${params.length}`);
+      }
+    }
+
+    if (sets.length === 0) return;
+    params.push(memoryId);
+    await this.pool.query(`UPDATE memories SET ${sets.join(", ")} WHERE memory_id = $${params.length}`, params);
+  }
+
+  async patchTier(memoryId: string, newTier: SourceTier, trustProof: TrustProof): Promise<void> {
+    await this.ensureMigrated();
+    await this.pool.query(
+      "UPDATE memories SET source_tier = $1, trust_proof = $2 WHERE memory_id = $3",
+      [newTier, JSON.stringify(trustProof), memoryId]
+    );
   }
 
   async get(memoryId: string): Promise<AmhRecord | null> {

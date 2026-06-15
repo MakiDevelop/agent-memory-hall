@@ -3,6 +3,7 @@ import type { AmhStore } from "../store/interface.js";
 import { TrustProofSchema } from "../schema/types.js";
 import type { TrustProof, SourceTier } from "../schema/types.js";
 import { readMemory } from "./read.js";
+import { appendProvenanceTransition } from "./provenance.js";
 
 const TIER_ORDER: Record<string, number> = {
   raw_source: 0,
@@ -67,6 +68,7 @@ export async function tierUpgrade(
   }
 
   const proof = parsed.data;
+  const now = new Date().toISOString();
 
   if (store.patchTier) {
     await store.patchTier(memoryId, newTier, proof);
@@ -79,7 +81,27 @@ export async function tierUpgrade(
     throw new Error("Store does not support tier upgrade (missing patchTier or patchMetadata)");
   }
 
-  const now = new Date().toISOString();
+  const provenanceChain = appendProvenanceTransition(record, {
+    type: "tier_upgrade",
+    from_memory_id: memoryId,
+    to_memory_id: memoryId,
+    performed_by: proof.confirmed_by,
+    performed_at: now,
+    tier_before: oldTier,
+    tier_after: newTier,
+  });
+  if (store.patchMetadata) {
+    await store.patchMetadata(memoryId, {
+      provenance_chain: JSON.stringify(provenanceChain),
+    });
+  } else {
+    await store.put({
+      ...record,
+      source: { ...record.source, tier: newTier },
+      trust_proof: proof,
+      provenance_chain: provenanceChain,
+    });
+  }
 
   await store.appendAudit({
     event_id: randomUUID(),

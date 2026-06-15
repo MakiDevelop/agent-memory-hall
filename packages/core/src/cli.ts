@@ -7,6 +7,7 @@ import { writeMemory } from "./operations/write.js";
 import { queryMemories, readMemory } from "./operations/read.js";
 import { getAuditLog } from "./operations/audit.js";
 import { revokeMemory } from "./operations/revoke.js";
+import { expireMemory } from "./operations/expire.js";
 import { transferMemory } from "./operations/transfer.js";
 import { tierUpgrade } from "./operations/tier-upgrade.js";
 import { importUmpFile, exportUmpFile } from "./import/ump.js";
@@ -85,6 +86,7 @@ Usage:
   amh transfer --id <memory_id> --agent <id> --ns <namespace> --by <agent>
   amh tier-upgrade --id <memory_id> --tier <tier> --by <agent> [--method <method>]
   amh forget --id <memory_id> --by <agent> [--reason <text>]
+  amh expire --id <memory_id> --by <agent> [--reason <text>]
   amh audit --id <memory_id>
   amh migrate                 Run DB migrations (decision→fact, content_hash rehash)
   amh status
@@ -302,6 +304,35 @@ async function cmdForget(args: string[], opts: ServerOptions): Promise<void> {
   console.log(JSON.stringify(result, null, 2));
 }
 
+async function cmdExpire(args: string[], opts: ServerOptions): Promise<void> {
+  const id = flagValue(args, "--id");
+  const by = flagValue(args, "--by");
+  const reason = flagValue(args, "--reason");
+  if (!id || !by) {
+    console.error("Usage: amh expire --id <memory_id> --by <agent> [--reason <text>]");
+    process.exit(1);
+  }
+
+  const ctx = await createAmhContext(opts);
+  const governance = resolveGovernance(ctx.config);
+  const result = await expireMemory(
+    {
+      memory_id: id,
+      expired_by: by,
+      reason,
+    },
+    ctx.store,
+    {
+      dedup: governance.dedup,
+      antiOuroboros: governance.antiOuroboros,
+      namespaceIsolation: governance.namespaceIsolation,
+      writeGate: governance.writeGate,
+    },
+    { callerNamespace: opts.callerNamespace ?? ctx.callerNamespace }
+  );
+  console.log(JSON.stringify(result, null, 2));
+}
+
 async function cmdTransfer(args: string[], opts: ServerOptions): Promise<void> {
   const id = flagValue(args, "--id");
   const agent = flagValue(args, "--agent");
@@ -478,6 +509,11 @@ if (command === "--help" || command === "-h" || rawArgs.includes("--help") || ra
   });
 } else if (command === "forget") {
   cmdForget(rest, opts).catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+} else if (command === "expire") {
+  cmdExpire(rest, opts).catch((err) => {
     console.error(err);
     process.exit(1);
   });

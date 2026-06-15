@@ -16,6 +16,8 @@ export { transferMemory } from "./operations/transfer.js";
 export type { TransferInput, TransferResult } from "./operations/transfer.js";
 export { revokeMemory } from "./operations/revoke.js";
 export type { RevokeInput, RevokeResult } from "./operations/revoke.js";
+export { expireMemory } from "./operations/expire.js";
+export type { ExpireInput, ExpireResult } from "./operations/expire.js";
 export { getAuditLog } from "./operations/audit.js";
 export { tierUpgrade, TierDowngradeError, InvalidTrustProofError } from "./operations/tier-upgrade.js";
 export type { TierUpgradeResult } from "./operations/tier-upgrade.js";

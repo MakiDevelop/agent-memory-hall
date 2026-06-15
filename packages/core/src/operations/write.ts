@@ -3,6 +3,7 @@ import { AmhRecordSchema, type AmhRecord, type AuditEvent } from "../schema/type
 import type { AmhStore } from "../store/interface.js";
 import { runWriteGate, type WriteGateConfig, type WriteGateContext } from "../governance/write-gate.js";
 import { readMemory } from "./read.js";
+import { appendProvenanceTransition } from "./provenance.js";
 
 export interface WriteInput {
   agent_id: string;
@@ -83,6 +84,15 @@ export async function writeMemory(
       );
     }
     supersedeParent = parent;
+    record.provenance_chain = appendProvenanceTransition(parent, {
+      type: "supersede",
+      from_memory_id: parent.memory_id,
+      to_memory_id: record.memory_id,
+      performed_by: input.agent_id,
+      performed_at: now,
+      tier_before: parent.source.tier,
+      tier_after: record.source.tier,
+    });
   }
 
   await store.put(record);

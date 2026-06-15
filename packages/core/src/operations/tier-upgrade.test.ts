@@ -56,6 +56,11 @@ describe("tierUpgrade", () => {
 
     const record = await readMemory(id, store);
     assert.equal(record!.source.tier, "llm_derived");
+    assert.deepEqual(record!.trust_proof, proof);
+    assert.equal(record!.provenance_chain?.origin.memory_id, id);
+    assert.equal(record!.provenance_chain?.transitions[0]?.type, "tier_upgrade");
+    assert.equal(record!.provenance_chain?.transitions[0]?.tier_before, "raw_source");
+    assert.equal(record!.provenance_chain?.transitions[0]?.tier_after, "llm_derived");
   });
 
   it("upgrades raw_source → human_confirmed", async () => {

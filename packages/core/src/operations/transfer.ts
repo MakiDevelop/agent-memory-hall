@@ -3,6 +3,7 @@ import type { AmhRecord, AuditEvent } from "../schema/types.js";
 import type { AmhStore } from "../store/interface.js";
 import { runWriteGate, type WriteGateConfig, type WriteGateContext } from "../governance/write-gate.js";
 import { readMemory } from "./read.js";
+import { appendProvenanceTransition } from "./provenance.js";
 
 export interface TransferInput {
   memory_id: string;
@@ -47,6 +48,15 @@ export async function transferMemory(
       ref: `transfer:${input.memory_id}`,
       tier: source.source.tier,
     },
+    provenance_chain: appendProvenanceTransition(source, {
+      type: "transfer",
+      from_memory_id: input.memory_id,
+      to_memory_id: newId,
+      performed_by: input.transferred_by,
+      performed_at: now,
+      tier_before: source.source.tier,
+      tier_after: source.source.tier,
+    }),
   };
 
   const context: WriteGateContext = {
