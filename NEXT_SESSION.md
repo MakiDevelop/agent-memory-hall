@@ -31,12 +31,18 @@
 | 🟢 | NeurIPS SEA abstract |
 | 🟢 | MCP tools for L4/L5 |
 
-## npm Packages
+## 三本柱 ACA 覆蓋狀態
+
+| 柱 | Package | Version | ACA 覆蓋 | Tests |
+|---|---|---|---|---|
+| **1. Agent Memory Hall** | `@chibakuma/agent-memory-hall` | 1.0.1 | L1+L2+L3+L4+L5+GP（全棧） | 92 |
+| **2. aca-govern** | `@chibakuma/aca-govern` | 0.1.2 | L1 audit（MCP governance proxy） | 4 |
+| **3. mk-council-public** | — (Python, GitHub only) | — | L5 Decision endpoints | 107 |
+
+## 其他 npm Packages
 
 | Package | Version |
 |---|---|
-| @chibakuma/agent-memory-hall | 1.0.1 |
-| @chibakuma/aca-govern | 0.1.2 |
 | @chibakuma/aca-types | 0.1.1 |
 | @chibakuma/aca-conformance | 0.1.0 |
 
