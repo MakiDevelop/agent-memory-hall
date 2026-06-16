@@ -3,7 +3,10 @@
   "private": true,
   "workspaces": [
     "packages/core",
-    "packages/inspector"
+    "packages/inspector",
+    "packages/langraph",
+    "packages/incident-analyzer",
+    "packages/certification"
   ],
   "scripts": {
     "build": "npm run build -w @chibakuma/agent-memory-hall",

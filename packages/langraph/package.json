@@ -1,0 +1,21 @@
+{
+  "name": "@chibakuma/aca-langgraph",
+  "version": "0.1.0",
+  "description": "ACA-governed checkpointer for LangGraph.js — adds source_tier, provenance, namespace isolation, and audit trail to LangGraph state",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "tsc && node --test dist/*.test.js"
+  },
+  "peerDependencies": {
+    "@langchain/langgraph-checkpoint": ">=0.1.0"
+  },
+  "dependencies": {
+    "@chibakuma/agent-memory-hall": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}

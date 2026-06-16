@@ -1,0 +1,21 @@
+{
+  "name": "@chibakuma/aca-certification",
+  "version": "0.1.0",
+  "description": "ACA conformance test suite — verify implementations against ACA protocol layers",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "aca-certify": "dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "tsc && node --test dist/*.test.js"
+  },
+  "dependencies": {
+    "@chibakuma/agent-memory-hall": "*"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.0"
+  }
+}
