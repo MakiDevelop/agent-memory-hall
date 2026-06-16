@@ -116,9 +116,10 @@ export async function ratifyDecision(
   memoryReader: MemoryReader,
   reviewAddressal?: string,
 ): Promise<{ decision_id: string; status: "ratified" }> {
+  if (!ratifiedBy.trim()) throw new DecisionError("ratified_by is required");
+  if (!rationale.trim()) throw new DecisionError("rationale is required");
   const decision = await decisionStore.getDecision(decisionId);
   if (!decision) throw new DecisionError(`Decision not found: ${decisionId}`);
-  if (!rationale.trim()) throw new DecisionError("rationale is required");
 
   const proposer = await authorityStore.getProposerForDecision(decisionId);
   const reviews = await authorityStore.getReviewsForDecision(decisionId);
@@ -169,8 +170,9 @@ export async function ratifyDecision(
       const mem = await memoryReader.read(eid);
       if (mem) evidenceTiers.push(mem.source_tier);
     }
-    if (evidenceTiers.length > 0 && evidenceTiers.every(t => t === "llm_derived")) {
-      throw new DecisionError("Cannot ratify critical decision: all evidence is llm_derived (Anti-Ouroboros)");
+    const hasHumanConfirmed = evidenceTiers.some(t => t === "human_confirmed");
+    if (!hasHumanConfirmed) {
+      throw new DecisionError("Cannot ratify critical decision: requires at least one human_confirmed evidence (Anti-Ouroboros)");
     }
   }
 
@@ -211,6 +213,7 @@ export async function implementDecision(
   notes: string,
   decisionStore: DecisionStore,
 ): Promise<{ decision_id: string; status: "in_effect"; effective_at: string }> {
+  if (!implementedBy.trim()) throw new DecisionError("implemented_by is required");
   const decision = await decisionStore.getDecision(decisionId);
   if (!decision) throw new DecisionError(`Decision not found: ${decisionId}`);
   if (decision.status !== "ratified") {
