@@ -24,6 +24,7 @@ export type { TierUpgradeIdentityContext, TierUpgradeResult } from "./operations
 export * from "./identity/index.js";
 export * from "./authority/index.js";
 export * from "./decision/index.js";
+export * from "./governance-plane/index.js";
 export { createAmhServer, createAmhContext, startServer } from "./mcp/server.js";
 export type { ServerOptions, AmhServerContext } from "./mcp/server.js";
 export { registerAmhResources } from "./mcp/resources.js";
