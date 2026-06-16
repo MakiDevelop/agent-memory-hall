@@ -63,8 +63,8 @@
     <a href="/decisions/dec-001" class="cta-button">Inspect Decision &rarr;</a>
   </div>
 
-  <div class="card">
-    <h2>Memory Status</h2>
+  <div class="card" style="cursor: pointer" onclick={() => window.location.href = '/memories'} role="link" tabindex="0" onkeydown={(e) => e.key === 'Enter' && (window.location.href = '/memories')}>
+    <h2>Memory Status <a href="/memories" class="explore-link">Explore &rarr;</a></h2>
     <div class="status-bar">
       <div class="status-segment active" style="width: {statusCounts.active / corpus.memories.length * 100}%">
         {statusCounts.active} active
@@ -157,7 +157,18 @@
     text-transform: uppercase;
     letter-spacing: 0.1em;
     margin-bottom: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
   }
+  .explore-link {
+    font-size: 12px;
+    color: var(--accent);
+    text-decoration: none;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .explore-link:hover { text-decoration: underline; }
   .status-bar {
     display: flex;
     border-radius: 6px;

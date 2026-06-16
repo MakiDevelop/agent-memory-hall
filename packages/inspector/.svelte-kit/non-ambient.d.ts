@@ -29,17 +29,21 @@ declare module "$app/types" {
 	type MatcherParam<M> = M extends (param : string) => param is (infer U extends string) ? U : string;
 
 	export interface AppTypes {
-		RouteId(): "/" | "/decisions" | "/decisions/[id]";
+		RouteId(): "/" | "/api" | "/decisions" | "/decisions/[id]" | "/memories" | "/memories/[id]";
 		RouteParams(): {
-			"/decisions/[id]": { id: string }
+			"/decisions/[id]": { id: string };
+			"/memories/[id]": { id: string }
 		};
 		LayoutParams(): {
 			"/": { id?: string | undefined };
+			"/api": Record<string, never>;
 			"/decisions": { id?: string | undefined };
-			"/decisions/[id]": { id: string }
+			"/decisions/[id]": { id: string };
+			"/memories": { id?: string | undefined };
+			"/memories/[id]": { id: string }
 		};
-		Pathname(): "/" | `/decisions/${string}` & {};
+		Pathname(): "/" | `/decisions/${string}` & {} | "/memories";
 		ResolvedPathname(): `${"" | `/${string}`}${ReturnType<AppTypes['Pathname']>}`;
-		Asset(): string & {};
+		Asset(): "/favicon.svg" | string & {};
 	}
 }
