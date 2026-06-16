@@ -2,7 +2,8 @@
   "name": "agent-memory-hall",
   "private": true,
   "workspaces": [
-    "packages/core"
+    "packages/core",
+    "packages/inspector"
   ],
   "scripts": {
     "build": "npm run build -w @chibakuma/agent-memory-hall",

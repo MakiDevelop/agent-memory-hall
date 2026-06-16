@@ -1,0 +1,439 @@
+{
+  "roles": [
+    {
+      "role_id": "role-architect",
+      "display_name": "Architect",
+      "scope": "project:alpha",
+      "capabilities": ["write_memory", "read_memory", "propose_decision", "supersede_memory", "tier_upgrade"],
+      "constraints": ["cannot_deploy", "cannot_self_approve", "requires_independent_review"],
+      "risk_threshold": 0.7,
+      "escalation_target": "role-chair",
+      "status": "active"
+    },
+    {
+      "role_id": "role-chair",
+      "display_name": "Chair (Human)",
+      "scope": "global",
+      "capabilities": ["write_memory", "read_memory", "supersede_memory", "revoke_memory", "propose_decision", "ratify_decision", "veto_decision", "grant_authority", "revoke_authority", "tier_upgrade", "modify_governance", "break_glass"],
+      "constraints": [],
+      "risk_threshold": null,
+      "escalation_target": null,
+      "status": "active"
+    },
+    {
+      "role_id": "role-engineer",
+      "display_name": "Engineer",
+      "scope": "project:alpha",
+      "capabilities": ["write_memory", "read_memory", "propose_decision"],
+      "constraints": ["cannot_deploy", "cannot_delete_memory", "cannot_override_decision", "cannot_self_approve"],
+      "risk_threshold": 0.4,
+      "escalation_target": "role-architect",
+      "status": "active"
+    }
+  ],
+  "assignments": [
+    {
+      "assignment_id": "assign-001",
+      "principal_id": "agent-claude",
+      "role_id": "role-architect",
+      "assigned_by": "maki",
+      "assigned_at": "2026-06-10T09:00:00Z",
+      "scope_namespace": "project:alpha",
+      "delegation_allowed": false,
+      "status": "active"
+    },
+    {
+      "assignment_id": "assign-002",
+      "principal_id": "maki",
+      "role_id": "role-chair",
+      "assigned_by": "system",
+      "assigned_at": "2026-06-01T00:00:00Z",
+      "scope_namespace": null,
+      "delegation_allowed": false,
+      "status": "active"
+    },
+    {
+      "assignment_id": "assign-003",
+      "principal_id": "agent-codex",
+      "role_id": "role-engineer",
+      "assigned_by": "maki",
+      "assigned_at": "2026-06-10T09:00:00Z",
+      "scope_namespace": "project:alpha",
+      "delegation_allowed": false,
+      "status": "active"
+    },
+    {
+      "assignment_id": "assign-004",
+      "principal_id": "agent-gemini",
+      "role_id": "role-engineer",
+      "assigned_by": "maki",
+      "assigned_at": "2026-06-10T09:00:00Z",
+      "scope_namespace": "project:alpha",
+      "delegation_allowed": false,
+      "status": "active"
+    },
+    {
+      "assignment_id": "assign-005",
+      "principal_id": "agent-grok",
+      "role_id": "role-engineer",
+      "assigned_by": "maki",
+      "assigned_at": "2026-06-12T10:00:00Z",
+      "scope_namespace": "project:alpha",
+      "delegation_allowed": false,
+      "status": "active"
+    }
+  ],
+  "memories": [
+    {
+      "amh_version": "0.1",
+      "memory_id": "mem-001",
+      "version": 1,
+      "status": "active",
+      "agent_id": "agent-codex",
+      "namespace": "project:alpha",
+      "memory_type": "fact",
+      "content": {
+        "format": "text/plain",
+        "value": "Production deployment requires Docker image tagged with git SHA and signed by CI pipeline."
+      },
+      "source": { "type": "agent", "ref": "codex-session-20260610", "tier": "llm_derived" },
+      "created_at": "2026-06-10T10:15:00Z",
+      "created_by": "agent-codex",
+      "content_hash": "sha256:a1b2c3d4"
+    },
+    {
+      "amh_version": "0.1",
+      "memory_id": "mem-002",
+      "version": 1,
+      "status": "active",
+      "agent_id": "agent-claude",
+      "namespace": "project:alpha",
+      "memory_type": "constraint",
+      "content": {
+        "format": "text/plain",
+        "value": "Database migrations must be reviewed by at least one human before execution in production."
+      },
+      "source": { "type": "human", "ref": "maki-directive-20260601", "tier": "human_confirmed" },
+      "created_at": "2026-06-01T14:00:00Z",
+      "created_by": "maki",
+      "trust_proof": {
+        "tier": "human_confirmed",
+        "confirmed_by": "maki",
+        "confirmed_at": "2026-06-01T14:00:00Z",
+        "evidence_ids": ["directive-001"],
+        "method": "human_review"
+      },
+      "content_hash": "sha256:e5f6g7h8"
+    },
+    {
+      "amh_version": "0.1",
+      "memory_id": "mem-003",
+      "version": 1,
+      "status": "superseded",
+      "agent_id": "agent-codex",
+      "namespace": "project:alpha",
+      "memory_type": "fact",
+      "content": {
+        "format": "text/plain",
+        "value": "API rate limit should be set to 100 requests per minute per user."
+      },
+      "source": { "type": "agent", "ref": "codex-analysis-20260611", "tier": "raw_source" },
+      "created_at": "2026-06-11T09:30:00Z",
+      "created_by": "agent-codex",
+      "content_hash": "sha256:i9j0k1l2"
+    },
+    {
+      "amh_version": "0.1",
+      "memory_id": "mem-004",
+      "version": 1,
+      "status": "active",
+      "agent_id": "agent-claude",
+      "namespace": "project:alpha",
+      "memory_type": "fact",
+      "content": {
+        "format": "text/plain",
+        "value": "API rate limit set to 500 requests per minute per user after load testing showed 100 was too restrictive for batch operations."
+      },
+      "source": { "type": "agent", "ref": "claude-review-20260612", "tier": "llm_derived" },
+      "created_at": "2026-06-12T11:00:00Z",
+      "created_by": "agent-claude",
+      "supersedes": "mem-003",
+      "trust_proof": {
+        "tier": "llm_derived",
+        "confirmed_by": "agent-claude",
+        "confirmed_at": "2026-06-12T11:00:00Z",
+        "evidence_ids": ["load-test-report-001"],
+        "method": "cross_reference"
+      },
+      "provenance_chain": {
+        "origin": {
+          "memory_id": "mem-003",
+          "agent_id": "agent-codex",
+          "namespace": "project:alpha",
+          "tier": "raw_source",
+          "created_at": "2026-06-11T09:30:00Z"
+        },
+        "transitions": [
+          {
+            "type": "supersede",
+            "from_memory_id": "mem-003",
+            "to_memory_id": "mem-004",
+            "performed_by": "agent-claude",
+            "performed_at": "2026-06-12T11:00:00Z",
+            "tier_before": "raw_source",
+            "tier_after": "llm_derived"
+          }
+        ]
+      },
+      "content_hash": "sha256:m3n4o5p6"
+    },
+    {
+      "amh_version": "0.1",
+      "memory_id": "mem-005",
+      "version": 1,
+      "status": "active",
+      "agent_id": "agent-claude",
+      "namespace": "project:alpha",
+      "memory_type": "fact",
+      "content": {
+        "format": "text/plain",
+        "value": "API rate limit confirmed at 500 req/min/user. Load test evidence reviewed and approved."
+      },
+      "source": { "type": "human", "ref": "maki-review-20260613", "tier": "human_confirmed" },
+      "created_at": "2026-06-13T16:00:00Z",
+      "created_by": "maki",
+      "trust_proof": {
+        "tier": "human_confirmed",
+        "confirmed_by": "maki",
+        "confirmed_at": "2026-06-13T16:00:00Z",
+        "evidence_ids": ["load-test-report-001", "mem-004"],
+        "method": "human_review"
+      },
+      "provenance_chain": {
+        "origin": {
+          "memory_id": "mem-003",
+          "agent_id": "agent-codex",
+          "namespace": "project:alpha",
+          "tier": "raw_source",
+          "created_at": "2026-06-11T09:30:00Z"
+        },
+        "transitions": [
+          {
+            "type": "supersede",
+            "from_memory_id": "mem-003",
+            "to_memory_id": "mem-004",
+            "performed_by": "agent-claude",
+            "performed_at": "2026-06-12T11:00:00Z",
+            "tier_before": "raw_source",
+            "tier_after": "llm_derived"
+          },
+          {
+            "type": "tier_upgrade",
+            "from_memory_id": "mem-004",
+            "to_memory_id": "mem-005",
+            "performed_by": "maki",
+            "performed_at": "2026-06-13T16:00:00Z",
+            "tier_before": "llm_derived",
+            "tier_after": "human_confirmed"
+          }
+        ]
+      },
+      "content_hash": "sha256:q7r8s9t0"
+    },
+    {
+      "amh_version": "0.1",
+      "memory_id": "mem-006",
+      "version": 1,
+      "status": "revoked",
+      "agent_id": "agent-gemini",
+      "namespace": "project:alpha",
+      "memory_type": "lesson",
+      "content": {
+        "format": "text/plain",
+        "value": "Redis cache TTL should be set to 24 hours for all session data."
+      },
+      "source": { "type": "agent", "ref": "gemini-analysis-20260611", "tier": "llm_derived" },
+      "created_at": "2026-06-11T14:00:00Z",
+      "created_by": "agent-gemini",
+      "content_hash": "sha256:u1v2w3x4"
+    },
+    {
+      "amh_version": "0.1",
+      "memory_id": "mem-007",
+      "version": 1,
+      "status": "active",
+      "agent_id": "agent-grok",
+      "namespace": "project:alpha",
+      "memory_type": "risk",
+      "content": {
+        "format": "text/plain",
+        "value": "Using llm_derived memories to auto-modify production constraints without human review creates governance bypass risk."
+      },
+      "source": { "type": "agent", "ref": "grok-risk-scan-20260614", "tier": "llm_derived" },
+      "created_at": "2026-06-14T10:00:00Z",
+      "created_by": "agent-grok",
+      "content_hash": "sha256:y5z6a7b8"
+    }
+  ],
+  "decisions": [
+    {
+      "decision_id": "dec-001",
+      "title": "Allow agents to auto-update production constraints from llm_derived sources",
+      "status": "ratified",
+      "risk_level": "high",
+      "proposer_principal_id": "agent-claude",
+      "proposal": {
+        "assumptions": [
+          "Agents have sufficient context to identify outdated constraints",
+          "llm_derived sources are reliable when cross-referenced"
+        ],
+        "evidence_ids": ["mem-004", "load-test-report-001"],
+        "risks": [
+          "Governance bypass: agent could override human-set constraints",
+          "Trust escalation: llm_derived → production without human gate"
+        ],
+        "trade_offs": [
+          "Faster iteration vs governance safety",
+          "Automation efficiency vs human oversight"
+        ],
+        "rollback_plan": "Revert to manual constraint review process; restore mem-003 original value",
+        "implementation_steps": [
+          "Add auto-update capability to architect role",
+          "Set risk_threshold check before constraint modification",
+          "Log all auto-updates to audit trail"
+        ]
+      },
+      "reviews": [
+        {
+          "review_id": "review-001",
+          "decision_id": "dec-001",
+          "reviewer_principal_id": "agent-codex",
+          "reviewer_role_id": "role-engineer",
+          "position": "oppose",
+          "reasoning": "Allowing agents to auto-modify production constraints from llm_derived sources bypasses the core governance principle: human confirmation is required for production-affecting changes. The risk_threshold mechanism is insufficient — it measures confidence, not correctness. A highly confident but wrong LLM output would pass the gate. This should require human_confirmed tier at minimum.",
+          "risk_categories_addressed": ["governance_bypass", "trust_escalation"],
+          "evidence_ids": ["mem-002", "mem-007"]
+        },
+        {
+          "review_id": "review-002",
+          "decision_id": "dec-001",
+          "reviewer_principal_id": "agent-gemini",
+          "reviewer_role_id": "role-engineer",
+          "position": "conditional_approve",
+          "reasoning": "The proposal has merit for non-critical constraints, but production-affecting constraints must retain human gate. Suggest: allow auto-update only for constraints tagged as 'operational' (e.g., rate limits), require human_confirmed for 'governance' constraints (e.g., deployment rules). Add a 24h cooling period before auto-updates take effect.",
+          "risk_categories_addressed": ["governance_bypass"],
+          "evidence_ids": ["mem-004"]
+        }
+      ],
+      "ratification": {
+        "ratified_by": "maki",
+        "rationale": "Accepting Gemini's conditional approach: auto-update allowed for operational constraints only, with 24h cooling period. Governance constraints require human_confirmed. Codex's concern about confidence ≠ correctness is valid — adding cross-reference requirement.",
+        "review_addressal": "Codex dissent incorporated: governance constraints excluded from auto-update. Gemini condition adopted: 24h cooling + operational-only scope."
+      },
+      "created_at": "2026-06-14T09:00:00Z",
+      "effective_at": "2026-06-14T17:00:00Z",
+      "review_deadline": "2026-06-14T15:00:00Z"
+    }
+  ],
+  "audit_events": [
+    {
+      "event_id": "evt-001",
+      "memory_id": "mem-001",
+      "operation": "write",
+      "principal_id": "agent-codex",
+      "timestamp": "2026-06-10T10:15:00Z",
+      "details": "Initial deployment fact recorded"
+    },
+    {
+      "event_id": "evt-002",
+      "memory_id": "mem-002",
+      "operation": "write",
+      "principal_id": "maki",
+      "timestamp": "2026-06-01T14:00:00Z",
+      "details": "Human directive: DB migration review constraint"
+    },
+    {
+      "event_id": "evt-003",
+      "memory_id": "mem-003",
+      "operation": "write",
+      "principal_id": "agent-codex",
+      "timestamp": "2026-06-11T09:30:00Z",
+      "details": "Initial rate limit analysis"
+    },
+    {
+      "event_id": "evt-004",
+      "memory_id": "mem-003",
+      "operation": "supersede",
+      "principal_id": "agent-claude",
+      "timestamp": "2026-06-12T11:00:00Z",
+      "details": "Superseded by mem-004 after load test review"
+    },
+    {
+      "event_id": "evt-005",
+      "memory_id": "mem-004",
+      "operation": "write",
+      "principal_id": "agent-claude",
+      "timestamp": "2026-06-12T11:00:00Z",
+      "details": "Rate limit updated to 500 req/min based on load test evidence"
+    },
+    {
+      "event_id": "evt-006",
+      "memory_id": "mem-005",
+      "operation": "tier_upgrade",
+      "principal_id": "maki",
+      "timestamp": "2026-06-13T16:00:00Z",
+      "details": "Human confirmed rate limit decision after reviewing load test report"
+    },
+    {
+      "event_id": "evt-007",
+      "memory_id": "mem-006",
+      "operation": "write",
+      "principal_id": "agent-gemini",
+      "timestamp": "2026-06-11T14:00:00Z",
+      "details": "Redis TTL recommendation"
+    },
+    {
+      "event_id": "evt-008",
+      "memory_id": "mem-006",
+      "operation": "revoke",
+      "principal_id": "maki",
+      "timestamp": "2026-06-12T09:00:00Z",
+      "details": "Revoked: 24h TTL too aggressive for session data; causes user logout issues"
+    },
+    {
+      "event_id": "evt-009",
+      "memory_id": "mem-007",
+      "operation": "write",
+      "principal_id": "agent-grok",
+      "timestamp": "2026-06-14T10:00:00Z",
+      "details": "Risk assessment: governance bypass from auto-constraint modification"
+    },
+    {
+      "event_id": "evt-010",
+      "memory_id": "mem-004",
+      "operation": "read",
+      "principal_id": "agent-claude",
+      "timestamp": "2026-06-14T09:05:00Z",
+      "correlation_id": "dec-001",
+      "details": "Evidence read for decision proposal dec-001"
+    },
+    {
+      "event_id": "evt-011",
+      "memory_id": "mem-002",
+      "operation": "read",
+      "principal_id": "agent-codex",
+      "timestamp": "2026-06-14T11:00:00Z",
+      "correlation_id": "dec-001",
+      "details": "Evidence read for review-001 (dissent reference)"
+    },
+    {
+      "event_id": "evt-012",
+      "memory_id": "mem-007",
+      "operation": "read",
+      "principal_id": "agent-codex",
+      "timestamp": "2026-06-14T11:01:00Z",
+      "correlation_id": "dec-001",
+      "details": "Risk evidence read for review-001"
+    }
+  ]
+}
