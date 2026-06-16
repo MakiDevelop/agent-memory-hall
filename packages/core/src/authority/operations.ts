@@ -177,6 +177,14 @@ export async function submitIndependentReview(
     throw new AuthorityError(`Active reviewer role not found: ${reviewerRoleId}`);
   }
 
+  const assignments = await store.getActiveAssignmentsForPrincipal(reviewerPrincipalId);
+  const hasRole = assignments.some(a => a.role_id === reviewerRoleId);
+  if (!hasRole) {
+    throw new AuthorityError(
+      `Principal ${reviewerPrincipalId} does not hold role ${reviewerRoleId}`,
+    );
+  }
+
   const review: IndependentReviewRecord = {
     review_id: randomUUID(),
     decision_id: decisionId,

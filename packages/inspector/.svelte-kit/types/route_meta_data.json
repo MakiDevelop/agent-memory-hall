@@ -1,5 +1,11 @@
 {
 	"/": [],
+	"/api/memories": [
+		"src/routes/api/memories/+server.ts"
+	],
+	"/api/overview": [
+		"src/routes/api/overview/+server.ts"
+	],
 	"/decisions/[id]": [],
 	"/memories": []
 }

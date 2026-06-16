@@ -95,6 +95,7 @@ Usage:
   amh audit --id <memory_id>
   amh migrate                 Run DB migrations (decision→fact, content_hash rehash)
   amh status
+  amh inspector [--port 5173]  Launch ACA Inspector Web UI
   amh --help
 
 Global options:
@@ -526,6 +527,53 @@ async function cmdStatus(opts: ServerOptions): Promise<void> {
   );
 }
 
+async function cmdInspector(args: string[], globalOpts: ServerOptions): Promise<void> {
+  const port = parseInt(flagValue(args, "--port") ?? "5173", 10);
+  const { spawn } = await import("node:child_process");
+  const { resolve, dirname } = await import("node:path");
+  const { fileURLToPath } = await import("node:url");
+
+  const __filename = fileURLToPath(import.meta.url);
+  const coreDir = dirname(dirname(__filename));
+  const inspectorDir = resolve(coreDir, "..", "inspector");
+
+  const { existsSync } = await import("node:fs");
+  if (!existsSync(inspectorDir)) {
+    console.error("ACA Inspector not found at", inspectorDir);
+    console.error("Run: cd packages/inspector && npm install");
+    process.exit(1);
+  }
+
+  const storeType = globalOpts.storeType ?? "sqlite";
+  const storePath = globalOpts.storePath ?? "";
+
+  const env: Record<string, string> = {
+    ...process.env as Record<string, string>,
+    AMH_STORE: storeType,
+    PORT: String(port),
+  };
+  if (storePath) env.AMH_STORE_PATH = storePath;
+
+  console.log(`Starting ACA Inspector on http://localhost:${port}`);
+  console.log(`Store: ${storeType}${storePath ? ` (${storePath})` : " (default)"}`);
+
+  const child = spawn("npx", ["vite", "dev", "--port", String(port)], {
+    cwd: inspectorDir,
+    env,
+    stdio: "inherit",
+  });
+
+  child.on("error", (err) => {
+    console.error("Failed to start inspector:", err.message);
+    process.exit(1);
+  });
+
+  process.on("SIGINT", () => {
+    child.kill("SIGINT");
+    process.exit(0);
+  });
+}
+
 const rawArgs = process.argv.slice(2);
 const { command, rest, opts } = parseGlobalOpts(rawArgs);
 
@@ -595,6 +643,11 @@ if (command === "--help" || command === "-h" || rawArgs.includes("--help") || ra
   });
 } else if (command === "status") {
   cmdStatus(opts).catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+} else if (command === "inspector") {
+  cmdInspector(rest, opts).catch((err) => {
     console.error(err);
     process.exit(1);
   });
