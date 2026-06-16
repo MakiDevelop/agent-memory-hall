@@ -22,6 +22,8 @@ export { getAuditLog } from "./operations/audit.js";
 export { tierUpgrade, TierDowngradeError, InvalidTrustProofError } from "./operations/tier-upgrade.js";
 export type { TierUpgradeIdentityContext, TierUpgradeResult } from "./operations/tier-upgrade.js";
 export * from "./identity/index.js";
+export * from "./authority/index.js";
+export * from "./decision/index.js";
 export { createAmhServer, createAmhContext, startServer } from "./mcp/server.js";
 export type { ServerOptions, AmhServerContext } from "./mcp/server.js";
 export { registerAmhResources } from "./mcp/resources.js";
