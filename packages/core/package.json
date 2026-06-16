@@ -1,6 +1,6 @@
 {
   "name": "@chibakuma/agent-memory-hall",
-  "version": "0.9.0",
+  "version": "1.0.0",
   "description": "MCP-native memory server with built-in governance for AI agents",
   "type": "module",
   "main": "dist/index.js",
