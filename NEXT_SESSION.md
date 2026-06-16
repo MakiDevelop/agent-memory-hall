@@ -1,35 +1,36 @@
 # Next Session — Agent Memory Hall + ACA Ecosystem
 
-> Last updated: 2026-06-16 (AMH v1.0.1 full stack + dogfood deepening complete)
+> Last updated: 2026-06-16 (市場驗證完成 + Reddit 首發)
 
 ## Done (this session)
 
-### AMH v1.0.1 — ACA Full Stack Reference Implementation
-- L4 Authority: 6 operations (Codex wrote store+ops, four brothers reviewed)
-- L5 Decision: 5 operations + Anti-Ouroboros hard gate + SoD + review addressal
-- Governance Plane: 4 operations (immutable/structural/operational rule tiers)
-- 92 tests pass (71 → 92), 0 regression
-- npm: 0.8.1 → 0.9.0 → 1.0.0 → 1.0.1
-- Four brothers full review: 3 bug fixes applied (Anti-Ouroboros空evidence堵塞, trim checks)
+### ACA 市場驗證 + Launch
+- 全員出動：Scout-1 (Perplexity 14 題) + Scout-2 (SuperGrok 16 題) + Codex adversarial (3/10→修正) + Gemini matrix (15 競品) + GPT-5.4 review (7 修正)
+- 四份 launch post v2 draft 通過三重審查 + 內容審查
+- Reddit r/AI_Agents 首帖已發：https://www.reddit.com/r/AI_Agents/comments/1u72i3l/
+- 3 則技術回覆已回應（botpipe 互推 + contradiction handling + expiry/drift）
+- HN Show HN 帳號太新被擋，待養號
 
-### Dogfood Deepening
-- mk-brain: L5 publish decision tracking (evidence trail for ghost publish)
-- knowledge-pipeline: L4 route authority registry
-- council-archive: L4 agent role registry + search enrichment
-
-### ACA Repo
-- Status table: all layers AMH v1.0, zero Planned
+### 關鍵市場發現
+- Anti-Ouroboros + Conformance suite = 15 家競品全無（Gemini matrix 確認）
+- MS Agent Governance Toolkit (2026-05) = 最大威脅
+- 定位確認：ACA = MCP/A2A 的 governance companion（不是「nobody is solving governance」）
+- arXiv 2605.16746 "memory laundering" = 學術互補（偵測 vs governance）
 
 ## Next Session
 
 | 優先級 | 行動 |
 |---|---|
-| 🔴 | **Jun 20 發帖**（~/Documents/ACA-Launch-Drafts.md + ACA-LinkedIn-Post.md） |
+| 🔴 | **關注 Reddit 帖回覆**，收集反饋調整後續帖 |
+| 🔴 | **6/20 發 LinkedIn 中英版 + X thread**（draft 已備好） |
+| 🟡 | DM arXiv 2605.16746 作者 |
+| 🟡 | HN 養號（在 agent governance 帖留言累積 karma） |
+| 🟡 | OWASP ASI coverage matrix blog（6 月底） |
+| 🟡 | LangChain governance middleware PR（6 月底） |
 | 🟡 | @anilsprasad DM |
-| 🟡 | 找朋友試用 ACA adapter（~/Documents/ACA-Friend-Onboarding.md） |
-| 🟡 | npm scope 遷移評估（@chibakuma → @aca-protocol） |
-| 🟢 | NeurIPS SEA abstract |
-| 🟢 | MCP tools for L4/L5 |
+| 🟡 | 找朋友試用 ACA adapter |
+| 🟢 | npm scope 遷移評估（@chibakuma → @aca-protocol） |
+| 🟢 | ICLR "Agents in the Wild" workshop（確認 deadline） |
 
 ## 三本柱 ACA 覆蓋狀態
 
