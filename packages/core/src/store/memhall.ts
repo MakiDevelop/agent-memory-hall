@@ -39,6 +39,13 @@ interface MemhallSearchResult {
   total?: number;
 }
 
+export class MemhallApiError extends Error {
+  constructor(public readonly status: number, message: string) {
+    super(message);
+    this.name = "MemhallApiError";
+  }
+}
+
 const VALID_STATUS = new Set<AmhRecord["status"]>(["active", "superseded", "revoked", "expired"]);
 
 function amhStatusFromMeta(meta: Record<string, unknown>): AmhRecord["status"] {
@@ -158,7 +165,7 @@ export class MemhallStore implements AmhStore {
 
     if (!res.ok) {
       const text = await res.text();
-      throw new Error(`memhall ${method} ${path} failed: ${res.status} ${text}`);
+      throw new MemhallApiError(res.status, `memhall ${method} ${path} failed: ${res.status} ${text}`);
     }
 
     return res.json() as Promise<T>;
@@ -294,5 +301,31 @@ export class MemhallStore implements AmhStore {
   async namespaces(): Promise<string[]> {
     const results = await this.query({ limit: 500 });
     return [...new Set(results.map((r) => r.namespace))];
+  }
+
+  async batonRead(namespace: string): Promise<{
+    baton: Record<string, unknown> | null;
+    namespace: string;
+    updated_at: string | null;
+    revision: number | null;
+  }> {
+    return this.api("POST", "/v1/baton/read", { namespace });
+  }
+
+  async batonWrite(
+    namespace: string,
+    baton: Record<string, unknown>,
+    expectedRevision?: number
+  ): Promise<{
+    ok: boolean;
+    updated_at: string;
+    namespace: string;
+    revision: number;
+  }> {
+    const body: Record<string, unknown> = { namespace, baton };
+    if (expectedRevision !== undefined) {
+      body.expected_revision = expectedRevision;
+    }
+    return this.api("POST", "/v1/baton/write", body);
   }
 }

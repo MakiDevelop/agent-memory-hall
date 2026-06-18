@@ -17,6 +17,7 @@ import { SqliteIdentityStore } from "../identity/sqlite-identity-store.js";
 import type { IdentityStore } from "../identity/store.js";
 import type { GrantPermission, PrincipalType } from "../identity/types.js";
 import { authorize, registerPrincipal } from "../identity/operations.js";
+import { MemhallStore, MemhallApiError } from "../store/memhall.js";
 
 export interface ServerOptions extends StoreOptions {
   configPath?: string;
@@ -546,6 +547,58 @@ export function createAmhServer(context: AmhServerContext) {
       };
     }
   );
+
+  if (store instanceof MemhallStore) {
+    server.tool(
+      "amh_baton_read",
+      "Read the session baton for a namespace (Loop Engineering state handoff)",
+      {
+        namespace: z.string().describe("Baton namespace (e.g. 'home', 'project:memory-hall')"),
+      },
+      async (params) => {
+        try {
+          const result = await (store as MemhallStore).batonRead(params.namespace);
+          return {
+            content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          };
+        } catch (err) {
+          return {
+            content: [{ type: "text" as const, text: `baton_read failed: ${err instanceof Error ? err.message : String(err)}` }],
+            isError: true,
+          };
+        }
+      }
+    );
+
+    server.tool(
+      "amh_baton_write",
+      "Write the session baton for a namespace (Loop Engineering state handoff). Pass expected_revision for CAS; omit for LWW.",
+      {
+        namespace: z.string().describe("Baton namespace"),
+        baton: z.record(z.unknown()).describe("Baton data object"),
+        expected_revision: z.number().int().nonnegative().optional().describe("Expected revision for CAS (omit for last-write-wins)"),
+      },
+      async (params) => {
+        try {
+          const result = await (store as MemhallStore).batonWrite(
+            params.namespace,
+            params.baton as Record<string, unknown>,
+            params.expected_revision
+          );
+          return {
+            content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+          };
+        } catch (err) {
+          const message = err instanceof Error ? err.message : String(err);
+          const isConflict = err instanceof MemhallApiError && err.status === 409;
+          return {
+            content: [{ type: "text" as const, text: isConflict ? `CAS conflict: ${message}` : `baton_write failed: ${message}` }],
+            isError: true,
+          };
+        }
+      }
+    );
+  }
 
   return server;
 }
