@@ -39,6 +39,12 @@ interface MemhallSearchResult {
   total?: number;
 }
 
+const MEMHALL_SEARCH_LIMIT_MAX = 100;
+
+function normalizeSearchLimit(limit: number | undefined): number {
+  return Math.min(limit ?? 20, MEMHALL_SEARCH_LIMIT_MAX);
+}
+
 export class MemhallApiError extends Error {
   constructor(public readonly status: number, message: string) {
     super(message);
@@ -223,7 +229,7 @@ export class MemhallStore implements AmhStore {
   async query(filter: AmhQuery): Promise<AmhRecord[]> {
     const searchBody: Record<string, unknown> = {
       mode: "hybrid",
-      limit: filter.limit ?? 20,
+      limit: normalizeSearchLimit(filter.limit),
     };
 
     if (filter.text) {
@@ -235,7 +241,7 @@ export class MemhallStore implements AmhStore {
     }
 
     if (filter.namespace) {
-      searchBody.namespace = filter.namespace;
+      searchBody.namespace = [filter.namespace];
     }
 
     const result = await this.api<MemhallSearchResult>(
@@ -294,12 +300,12 @@ export class MemhallStore implements AmhStore {
     if (typeof result.total === "number") {
       return result.total;
     }
-    const all = await this.query({ limit: 500 });
+    const all = await this.query({ limit: MEMHALL_SEARCH_LIMIT_MAX });
     return all.length;
   }
 
   async namespaces(): Promise<string[]> {
-    const results = await this.query({ limit: 500 });
+    const results = await this.query({ limit: MEMHALL_SEARCH_LIMIT_MAX });
     return [...new Set(results.map((r) => r.namespace))];
   }
 

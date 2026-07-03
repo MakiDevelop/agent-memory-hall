@@ -140,4 +140,22 @@ describe("MemhallStore integration adapter", () => {
     assert.equal(records.length, 1);
     assert.equal(records[0]?.memory_type, "fact");
   });
+
+  it("sends namespace filters as arrays for memhall search", async () => {
+    const store = new MemhallStore(BASE, "token");
+    await store.query({ namespace: "project:integration", text: "content", limit: 10 });
+    const payload = JSON.parse(calls[0]?.body ?? "{}") as {
+      namespace?: unknown;
+      limit?: number;
+    };
+    assert.deepEqual(payload.namespace, ["project:integration"]);
+    assert.equal(payload.limit, 10);
+  });
+
+  it("clamps search limit to memhall API maximum", async () => {
+    const store = new MemhallStore(BASE, "token");
+    await store.query({ limit: 500 });
+    const payload = JSON.parse(calls[0]?.body ?? "{}") as { limit?: number };
+    assert.equal(payload.limit, 100);
+  });
 });
