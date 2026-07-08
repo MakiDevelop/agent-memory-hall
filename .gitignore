@@ -12,3 +12,5 @@ node_modules/
 .review-diff.txt
 dist/
 *.tsbuildinfo
+GEMINI.md
+.playwright-mcp/
