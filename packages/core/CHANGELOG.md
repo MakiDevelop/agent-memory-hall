@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.4.0 — 2026-07-24
+
+### Added
+- `amh boot` — session compiler (latest + blockers + artifact exists + protocol hints)
+- `amh knowledge` / `knowledge list` — durable fact/constraint with supersede
+- `amh write --supersedes` / `--ttl-days` / `--valid-until`
+- `amh ttl-sweep [--apply]` — expire past `valid_until` (default dry-run)
+
 ## 1.3.0 — 2026-07-24
 
 ### Added

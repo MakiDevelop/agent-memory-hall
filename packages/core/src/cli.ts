@@ -6,6 +6,9 @@ import { AMH_VERSION } from "./version.js";
 import { writeMemory } from "./operations/write.js";
 import { queryMemories, readMemory } from "./operations/read.js";
 import { latestMemories } from "./operations/latest.js";
+import { bootSession } from "./operations/boot.js";
+import { ttlSweep } from "./operations/ttl-sweep.js";
+import { writeKnowledge, listActiveKnowledge } from "./operations/knowledge.js";
 import { getAuditLog } from "./operations/audit.js";
 import { revokeMemory } from "./operations/revoke.js";
 import { expireMemory } from "./operations/expire.js";
@@ -85,9 +88,12 @@ function printHelp(): void {
 
 Usage:
   amh [serve]                  Start MCP server (SQLite default)
+  amh boot --ns <namespace>    Session compiler (latest + artifacts + blockers)
   amh write [options] <content>
+  amh knowledge --agent <id> --ns <ns> <content>  Durable fact (+ optional supersede)
   amh latest --ns <namespace> [options]   Latest by created_at (NOT search)
   amh read [options]
+  amh ttl-sweep [--ns <ns>] [--apply]   Expire past valid_until (default dry-run)
   amh import --from <ump|mem0> <file>
   amh export --to ump --out <file> [--ns <namespace>]
   amh transfer --id <memory_id> --agent <id> --ns <namespace> --by <agent>
@@ -118,6 +124,13 @@ Write options:
   --kind <state|memory|pointer>   Content kind marker (R1 quality)
   --status-label <open|blocked|done>  Workflow status for kind=state
   --artifact <path>    Absolute path for kind=pointer or state
+  --supersedes <id>    Mark parent memory superseded
+  --ttl-days <n>       Set valid_until = now + n days
+  --valid-until <iso>  Explicit expiry ISO timestamp
+
+Knowledge options:
+  --agent --ns required; --type fact|constraint; --supersedes <id>
+  --replaces-text <q>  Find active fact containing q and supersede it
 
 Read options:
   --id <memory_id>     Fetch single record
@@ -127,7 +140,7 @@ Read options:
   --text <query>       Text search (relevance — NOT for handoff)
   --limit <n>          Max results (default 20)
 
-Latest options (handoff-safe, time-ordered):
+Latest / boot options (handoff-safe, time-ordered):
   --ns <namespace>     Required
   --type <type>        Optional type filter
   --agent <id>         Optional agent filter
@@ -135,12 +148,15 @@ Latest options (handoff-safe, time-ordered):
   --all                Do not prefer [state]/[wrap-up] markers
 
 Examples:
+  amh boot --ns project:acme --caller-ns project:acme
   amh latest --ns project:acme --caller-ns project:acme
   amh write --agent planner --ns project:acme --type lesson --kind state --status-label open "next: fix tests"
-  amh write --agent planner --ns project:acme --type fact "Use PostgreSQL"
+  amh write --agent planner --ns project:acme --type lesson --ttl-days 30 "scratch note"
+  amh knowledge --agent planner --ns project:acme --supersedes <id> "New canonical fact"
+  amh ttl-sweep --ns project:acme            # dry-run
+  amh ttl-sweep --ns project:acme --apply    # expire due records
   amh read --ns project:acme --text "PostgreSQL"
   amh principal register --id human:maki --type human --name Maki
-  amh --store postgres --path postgres://amh:amh@localhost:5432/amh serve
 
 MCP config:
   {
@@ -188,6 +204,20 @@ function formatWriteContent(
   return raw;
 }
 
+function resolveValidUntil(args: string[]): string | undefined {
+  const explicit = flagValue(args, "--valid-until");
+  if (explicit) return explicit;
+  const days = flagValue(args, "--ttl-days");
+  if (!days) return undefined;
+  const n = parseInt(days, 10);
+  if (!Number.isFinite(n) || n <= 0) {
+    throw new Error("--ttl-days must be a positive integer");
+  }
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString();
+}
+
 async function cmdWrite(args: string[], opts: ServerOptions): Promise<void> {
   const agent = flagValue(args, "--agent");
   const ns = flagValue(args, "--ns");
@@ -197,6 +227,7 @@ async function cmdWrite(args: string[], opts: ServerOptions): Promise<void> {
   const kind = flagValue(args, "--kind");
   const statusLabel = flagValue(args, "--status-label");
   const artifact = flagValue(args, "--artifact");
+  const supersedes = flagValue(args, "--supersedes");
   const rawContent = positionalArgs(args).join(" ").trim();
 
   if (!agent || !ns || !type || !rawContent) {
@@ -205,8 +236,10 @@ async function cmdWrite(args: string[], opts: ServerOptions): Promise<void> {
   }
 
   let content: string;
+  let validUntil: string | undefined;
   try {
     content = formatWriteContent(rawContent, kind, statusLabel, artifact);
+    validUntil = resolveValidUntil(args);
   } catch (err) {
     console.error(err instanceof Error ? err.message : err);
     process.exit(1);
@@ -224,6 +257,8 @@ async function cmdWrite(args: string[], opts: ServerOptions): Promise<void> {
         source_type: "agent",
         source_ref: sourceRef,
         source_tier: tier ?? "llm_derived",
+        valid_until: validUntil,
+        supersedes,
       },
       ctx.store,
       {
@@ -244,6 +279,117 @@ async function cmdWrite(args: string[], opts: ServerOptions): Promise<void> {
       hint: "AMH does not silent-fallback to local sqlite when memhall fails",
     }, null, 2));
     process.exit(1);
+  }
+}
+
+async function cmdBoot(args: string[], opts: ServerOptions): Promise<void> {
+  const ns = flagValue(args, "--ns");
+  if (!ns) {
+    console.error("Usage: amh boot --ns <namespace> [--limit 5]");
+    process.exit(1);
+  }
+  const limit = flagValue(args, "--limit") ? parseInt(flagValue(args, "--limit")!, 10) : 5;
+  const ctx = await createAmhContext(opts);
+  const governance = resolveGovernance(ctx.config);
+  const config = await loadConfig(opts.configPath);
+  const storeType = opts.storeType ?? config.store ?? "sqlite";
+  const result = await bootSession(
+    { namespace: ns, limit, agent_id: flagValue(args, "--agent") },
+    ctx.store,
+    {
+      callerNamespace: opts.callerNamespace ?? ctx.callerNamespace,
+      namespaceIsolation: governance.namespaceIsolation,
+    },
+    storeType
+  );
+  console.log(JSON.stringify(result, null, 2));
+}
+
+async function cmdKnowledge(args: string[], opts: ServerOptions): Promise<void> {
+  if (args[0] === "list") {
+    const ns = flagValue(args, "--ns");
+    if (!ns) {
+      console.error("Usage: amh knowledge list --ns <namespace>");
+      process.exit(1);
+    }
+    const ctx = await createAmhContext(opts);
+    const governance = resolveGovernance(ctx.config);
+    const rows = await listActiveKnowledge(
+      ns,
+      ctx.store,
+      {
+        callerNamespace: opts.callerNamespace ?? ctx.callerNamespace,
+        namespaceIsolation: governance.namespaceIsolation,
+      },
+      flagValue(args, "--limit") ? parseInt(flagValue(args, "--limit")!, 10) : 20
+    );
+    console.log(JSON.stringify({ mode: "knowledge_list", namespace: ns, count: rows.length, records: rows }, null, 2));
+    return;
+  }
+
+  const agent = flagValue(args, "--agent");
+  const ns = flagValue(args, "--ns");
+  const type = (flagValue(args, "--type") as "fact" | "constraint" | undefined) ?? "fact";
+  const supersedes = flagValue(args, "--supersedes");
+  const replaces = flagValue(args, "--replaces-text");
+  const content = positionalArgs(args).join(" ").trim();
+  if (!agent || !ns || !content) {
+    console.error("Usage: amh knowledge --agent <id> --ns <ns> [--supersedes <id>] [--replaces-text <q>] <content>");
+    process.exit(1);
+  }
+  const ctx = await createAmhContext(opts);
+  const governance = resolveGovernance(ctx.config);
+  try {
+    const result = await writeKnowledge(
+      {
+        agent_id: agent,
+        namespace: ns,
+        content,
+        memory_type: type === "constraint" ? "constraint" : "fact",
+        supersedes,
+        replaces_text: replaces,
+        source_tier: flagValue(args, "--tier") as AmhRecordTier | undefined,
+      },
+      ctx.store,
+      {
+        dedup: governance.dedup,
+        antiOuroboros: governance.antiOuroboros,
+        namespaceIsolation: governance.namespaceIsolation,
+        writeGate: governance.writeGate,
+      },
+      { callerNamespace: opts.callerNamespace ?? ctx.callerNamespace }
+    );
+    console.log(JSON.stringify(result, null, 2));
+  } catch (err) {
+    console.error(JSON.stringify({
+      error: err instanceof Error ? err.message : String(err),
+      error_type: err instanceof Error ? err.name : "Error",
+    }, null, 2));
+    process.exit(1);
+  }
+}
+
+type AmhRecordTier = "raw_source" | "llm_derived" | "human_confirmed";
+
+async function cmdTtlSweep(args: string[], opts: ServerOptions): Promise<void> {
+  const apply = args.includes("--apply");
+  const ns = flagValue(args, "--ns");
+  const limit = flagValue(args, "--limit") ? parseInt(flagValue(args, "--limit")!, 10) : 500;
+  const ctx = await createAmhContext(opts);
+  const result = await ttlSweep(
+    ctx.store,
+    {
+      namespace: ns,
+      dryRun: !apply,
+      limit,
+      expired_by: flagValue(args, "--by") ?? "ttl-sweep",
+    },
+    { namespaceIsolation: false },
+    { callerNamespace: opts.callerNamespace ?? ctx.callerNamespace }
+  );
+  console.log(JSON.stringify(result, null, 2));
+  if (!apply && result.due > 0) {
+    console.error(`# dry-run: ${result.due} due. Re-run with --apply to expire.`);
   }
 }
 
@@ -719,6 +865,21 @@ if (command === "--help" || command === "-h" || rawArgs.includes("--help") || ra
   });
 } else if (command === "write") {
   cmdWrite(rest, opts).catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+} else if (command === "boot") {
+  cmdBoot(rest, opts).catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+} else if (command === "knowledge") {
+  cmdKnowledge(rest, opts).catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+} else if (command === "ttl-sweep") {
+  cmdTtlSweep(rest, opts).catch((err) => {
     console.error(err);
     process.exit(1);
   });

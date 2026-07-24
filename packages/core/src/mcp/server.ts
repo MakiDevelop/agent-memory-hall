@@ -8,6 +8,7 @@ import { AMH_VERSION } from "../version.js";
 import { writeMemory } from "../operations/write.js";
 import { readMemory, queryMemories } from "../operations/read.js";
 import { latestMemories } from "../operations/latest.js";
+import { bootSession } from "../operations/boot.js";
 import { transferMemory } from "../operations/transfer.js";
 import { revokeMemory } from "../operations/revoke.js";
 import { expireMemory } from "../operations/expire.js";
@@ -209,6 +210,45 @@ export function createAmhServer(context: AmhServerContext) {
                 null,
                 2
               ),
+            },
+          ],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
+    "amh_boot",
+    "Session compiler: load latest state, blockers, artifact paths for a namespace. Use at session start instead of free-form search.",
+    {
+      namespace: z.string(),
+      limit: z.number().optional().default(5),
+      agent_id: z.string().optional(),
+    },
+    async (params) => {
+      try {
+        const result = await bootSession(
+          {
+            namespace: params.namespace,
+            limit: params.limit,
+            agent_id: params.agent_id,
+          },
+          store,
+          readCtx,
+          "mcp"
+        );
+        return {
+          content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
+        };
+      } catch (err) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                error: err instanceof Error ? err.message : String(err),
+              }, null, 2),
             },
           ],
           isError: true,
