@@ -226,19 +226,59 @@ export class MemhallStore implements AmhStore {
     }
   }
 
+  /**
+   * Chronological list via GET /v1/memory (created_at DESC).
+   * Use this for handoff / latest-state — NOT hybrid search.
+   */
+  async listLatest(filter: {
+    namespace?: string;
+    memory_type?: AmhRecord["memory_type"];
+    agent_id?: string;
+    limit?: number;
+  } = {}): Promise<AmhRecord[]> {
+    const params = new URLSearchParams();
+    params.set("limit", String(normalizeSearchLimit(filter.limit ?? 20)));
+    if (filter.namespace) {
+      params.append("namespace", filter.namespace);
+    }
+    if (filter.memory_type) {
+      params.append("type", reverseMapType(filter.memory_type));
+    }
+    if (filter.agent_id) {
+      params.set("agent_id", filter.agent_id);
+    }
+
+    const result = await this.api<{ entries: MemhallEntry[] }>(
+      "GET",
+      `/v1/memory?${params.toString()}`
+    );
+    const entries = Array.isArray(result.entries) ? result.entries : [];
+    return entries.map(entryToAmh);
+  }
+
   async query(filter: AmhQuery): Promise<AmhRecord[]> {
+    // No text query → chronological list (handoff-safe). Text → hybrid search.
+    if (!filter.text) {
+      let records = await this.listLatest({
+        namespace: filter.namespace,
+        memory_type: filter.memory_type,
+        agent_id: filter.agent_id,
+        limit: filter.limit,
+      });
+      if (filter.status) {
+        records = records.filter((r) => r.status === filter.status);
+      }
+      if (filter.memory_id) {
+        records = records.filter((r) => r.memory_id === filter.memory_id);
+      }
+      return records;
+    }
+
     const searchBody: Record<string, unknown> = {
       mode: "hybrid",
       limit: normalizeSearchLimit(filter.limit),
+      query: filter.text,
     };
-
-    if (filter.text) {
-      searchBody.query = filter.text;
-    } else if (filter.namespace) {
-      searchBody.query = filter.namespace;
-    } else {
-      searchBody.query = "*";
-    }
 
     if (filter.namespace) {
       searchBody.namespace = [filter.namespace];
@@ -273,7 +313,24 @@ export class MemhallStore implements AmhStore {
   }
 
   async list(namespace?: string): Promise<AmhRecord[]> {
-    return this.query({ namespace, limit: 100 });
+    return this.listLatest({ namespace, limit: 100 });
+  }
+
+  /** Probe primary for status honesty (fail-loud diagnostics). */
+  async healthCheck(): Promise<{ ok: boolean; status?: number; error?: string }> {
+    try {
+      const url = `${this.baseUrl}/v1/memory?limit=1`;
+      const res = await fetch(url, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${this.token}` },
+      });
+      if (!res.ok) {
+        return { ok: false, status: res.status, error: await res.text() };
+      }
+      return { ok: true, status: res.status };
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : String(err) };
+    }
   }
 
   async appendAudit(event: AuditEvent): Promise<void> {

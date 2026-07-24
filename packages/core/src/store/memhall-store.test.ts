@@ -66,6 +66,32 @@ describe("MemhallStore integration adapter", () => {
         );
       }
 
+      if (method === "GET" && url.includes("/v1/memory?") && !url.includes("/v1/memory/0")) {
+        return new Response(
+          JSON.stringify({
+            entries: [
+              {
+                entry_id: "01DECISION",
+                tenant_id: "default",
+                agent_id: "codex",
+                namespace: "project:integration",
+                type: "decision",
+                content: "legacy decision content",
+                content_hash: "hash",
+                summary: null,
+                tags: [],
+                references: [],
+                metadata: { source_type: "agent", source_ref: "", source_tier: "llm_derived" },
+                sync_status: "embedded",
+                created_at: "2026-06-15T12:00:00Z",
+                created_by_principal: "codex",
+              },
+            ],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+
       if (method === "POST" && url.endsWith("/v1/memory/search")) {
         return new Response(
           JSON.stringify({
@@ -134,16 +160,19 @@ describe("MemhallStore integration adapter", () => {
     assert.equal(body.relation, "supersedes");
   });
 
-  it("maps memhall decision entries to fact and matches fact queries", async () => {
+  it("maps memhall decision entries to fact via chronological list (no text)", async () => {
     const store = new MemhallStore(BASE, "token");
     const records = await store.query({ namespace: "project:integration", memory_type: "fact" });
+    assert.equal(calls[0]?.method, "GET");
+    assert.match(calls[0]?.url ?? "", /\/v1\/memory\?/);
     assert.equal(records.length, 1);
     assert.equal(records[0]?.memory_type, "fact");
   });
 
-  it("sends namespace filters as arrays for memhall search", async () => {
+  it("sends namespace filters as arrays for memhall text search", async () => {
     const store = new MemhallStore(BASE, "token");
     await store.query({ namespace: "project:integration", text: "content", limit: 10 });
+    assert.equal(calls[0]?.method, "POST");
     const payload = JSON.parse(calls[0]?.body ?? "{}") as {
       namespace?: unknown;
       limit?: number;
@@ -152,10 +181,17 @@ describe("MemhallStore integration adapter", () => {
     assert.equal(payload.limit, 10);
   });
 
-  it("clamps search limit to memhall API maximum", async () => {
+  it("clamps list limit to memhall API maximum when no text", async () => {
     const store = new MemhallStore(BASE, "token");
     await store.query({ limit: 500 });
-    const payload = JSON.parse(calls[0]?.body ?? "{}") as { limit?: number };
-    assert.equal(payload.limit, 100);
+    assert.equal(calls[0]?.method, "GET");
+    assert.match(calls[0]?.url ?? "", /limit=100/);
+  });
+
+  it("listLatest uses GET /v1/memory", async () => {
+    const store = new MemhallStore(BASE, "token");
+    const records = await store.listLatest({ namespace: "project:integration", limit: 5 });
+    assert.equal(calls[0]?.method, "GET");
+    assert.equal(records.length, 1);
   });
 });

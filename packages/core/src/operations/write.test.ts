@@ -31,6 +31,8 @@ describe("write + read integration", () => {
     assert.ok(result.memory_id);
     assert.deepEqual(result.governance_applied, [
       "namespace_isolation",
+      "content_quality",
+      "kind_detect:memory",
       "anti_ouroboros",
       "content_hash",
       "dedup",

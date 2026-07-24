@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.3.0 — 2026-07-24
+
+### Added
+- `amh latest --ns …` — chronological handoff resume (R4); MCP tool `amh_latest`
+- Write content quality gate: reject placeholders (`test`), require artifact path for `[pointer …]`, warn long `[state …]`
+- `--kind state|memory|pointer`, `--status-label`, `--artifact` on `amh write`
+- Memhall store: no-text query uses `GET /v1/memory` (list) instead of hybrid search
+- `amh status` reports store type/path/reachable + handoff rule
+
+### Fixed
+- Handoff load no longer uses relevance search on memhall backend
+
 ## 0.6.5 — 2026-06-15
 
 ### Added (`integration:memhall-amh` Phase 3)

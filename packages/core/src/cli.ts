@@ -5,6 +5,7 @@ import { createAmhContext } from "./mcp/server.js";
 import { AMH_VERSION } from "./version.js";
 import { writeMemory } from "./operations/write.js";
 import { queryMemories, readMemory } from "./operations/read.js";
+import { latestMemories } from "./operations/latest.js";
 import { getAuditLog } from "./operations/audit.js";
 import { revokeMemory } from "./operations/revoke.js";
 import { expireMemory } from "./operations/expire.js";
@@ -16,6 +17,8 @@ import { resolveGovernance, resolveIdentityConfig } from "./config.js";
 import type { AmhServerContext } from "./mcp/server.js";
 import { registerPrincipal } from "./identity/operations.js";
 import type { PrincipalType } from "./identity/types.js";
+import { MemhallStore } from "./store/memhall.js";
+import { loadConfig } from "./config.js";
 
 function parseGlobalOpts(args: string[]): { command: string; rest: string[]; opts: ServerOptions } {
   const opts: ServerOptions = {};
@@ -83,6 +86,7 @@ function printHelp(): void {
 Usage:
   amh [serve]                  Start MCP server (SQLite default)
   amh write [options] <content>
+  amh latest --ns <namespace> [options]   Latest by created_at (NOT search)
   amh read [options]
   amh import --from <ump|mem0> <file>
   amh export --to ump --out <file> [--ns <namespace>]
@@ -111,20 +115,31 @@ Write options:
   --type <type>        fact|preference|constraint|lesson|risk
   --tier <tier>        raw_source|llm_derived|human_confirmed
   --source-ref <ref>   Source reference
+  --kind <state|memory|pointer>   Content kind marker (R1 quality)
+  --status-label <open|blocked|done>  Workflow status for kind=state
+  --artifact <path>    Absolute path for kind=pointer or state
 
 Read options:
   --id <memory_id>     Fetch single record
   --ns <namespace>     Filter namespace
   --type <type>        Filter type
   --agent <id>         Filter agent
-  --text <query>       Text search
+  --text <query>       Text search (relevance — NOT for handoff)
   --limit <n>          Max results (default 20)
 
+Latest options (handoff-safe, time-ordered):
+  --ns <namespace>     Required
+  --type <type>        Optional type filter
+  --agent <id>         Optional agent filter
+  --limit <n>          Default 5
+  --all                Do not prefer [state]/[wrap-up] markers
+
 Examples:
+  amh latest --ns project:acme --caller-ns project:acme
+  amh write --agent planner --ns project:acme --type lesson --kind state --status-label open "next: fix tests"
   amh write --agent planner --ns project:acme --type fact "Use PostgreSQL"
-  amh read --ns project:acme --type fact
+  amh read --ns project:acme --text "PostgreSQL"
   amh principal register --id human:maki --type human --name Maki
-  amh import --from ump ./memory.ump.json
   amh --store postgres --path postgres://amh:amh@localhost:5432/amh serve
 
 MCP config:
@@ -146,41 +161,125 @@ function requireIdentityStore(ctx: AmhServerContext) {
   return ctx.identityStore;
 }
 
+function formatWriteContent(
+  raw: string,
+  kind: string | undefined,
+  statusLabel: string | undefined,
+  artifact: string | undefined
+): string {
+  if (!kind && !statusLabel && !artifact) return raw;
+  const k = kind ?? "memory";
+  const date = new Date().toISOString().slice(0, 10);
+  if (k === "state") {
+    return [
+      `[state auto ${date}] ${raw.split("\n")[0] ?? raw}`,
+      `status: ${statusLabel ?? "open"}`,
+      `next: ${raw}`,
+      `blocker: 無`,
+      `artifact: ${artifact ?? "⏭️ none"}`,
+    ].join("\n");
+  }
+  if (k === "pointer") {
+    if (!artifact) {
+      throw new Error("--kind pointer requires --artifact <absolute-path>");
+    }
+    return `[pointer auto ${date}] ${raw}\nartifact: ${artifact}`;
+  }
+  return raw;
+}
+
 async function cmdWrite(args: string[], opts: ServerOptions): Promise<void> {
   const agent = flagValue(args, "--agent");
   const ns = flagValue(args, "--ns");
   const type = flagValue(args, "--type") as Parameters<typeof writeMemory>[0]["memory_type"] | undefined;
   const tier = flagValue(args, "--tier") as Parameters<typeof writeMemory>[0]["source_tier"] | undefined;
   const sourceRef = flagValue(args, "--source-ref") ?? "";
-  const content = positionalArgs(args).join(" ").trim();
+  const kind = flagValue(args, "--kind");
+  const statusLabel = flagValue(args, "--status-label");
+  const artifact = flagValue(args, "--artifact");
+  const rawContent = positionalArgs(args).join(" ").trim();
 
-  if (!agent || !ns || !type || !content) {
-    console.error("Usage: amh write --agent <id> --ns <namespace> --type <type> <content>");
+  if (!agent || !ns || !type || !rawContent) {
+    console.error("Usage: amh write --agent <id> --ns <namespace> --type <type> [--kind state|memory|pointer] <content>");
+    process.exit(1);
+  }
+
+  let content: string;
+  try {
+    content = formatWriteContent(rawContent, kind, statusLabel, artifact);
+  } catch (err) {
+    console.error(err instanceof Error ? err.message : err);
     process.exit(1);
   }
 
   const ctx = await createAmhContext(opts);
   const governance = resolveGovernance(ctx.config);
-  const result = await writeMemory(
+  try {
+    const result = await writeMemory(
+      {
+        agent_id: agent,
+        namespace: ns,
+        memory_type: type,
+        content,
+        source_type: "agent",
+        source_ref: sourceRef,
+        source_tier: tier ?? "llm_derived",
+      },
+      ctx.store,
+      {
+        dedup: governance.dedup,
+        antiOuroboros: governance.antiOuroboros,
+        namespaceIsolation: governance.namespaceIsolation,
+        writeGate: governance.writeGate,
+      },
+      { callerNamespace: opts.callerNamespace ?? ctx.callerNamespace }
+    );
+    console.log(JSON.stringify(result, null, 2));
+  } catch (err) {
+    // Fail-loud: never silently fall back to another store
+    console.error(JSON.stringify({
+      error: err instanceof Error ? err.message : String(err),
+      error_type: err instanceof Error ? err.name : "Error",
+      store: opts.storeType ?? ctx.config.store ?? "sqlite",
+      hint: "AMH does not silent-fallback to local sqlite when memhall fails",
+    }, null, 2));
+    process.exit(1);
+  }
+}
+
+async function cmdLatest(args: string[], opts: ServerOptions): Promise<void> {
+  const ns = flagValue(args, "--ns");
+  if (!ns) {
+    console.error("Usage: amh latest --ns <namespace> [--limit 5] [--type lesson] [--all]");
+    process.exit(1);
+  }
+  const limit = flagValue(args, "--limit") ? parseInt(flagValue(args, "--limit")!, 10) : 5;
+  const preferStateMarkers = !args.includes("--all");
+  const type = flagValue(args, "--type") as Parameters<typeof latestMemories>[0]["memory_type"] | undefined;
+  const agent = flagValue(args, "--agent");
+
+  const ctx = await createAmhContext(opts);
+  const governance = resolveGovernance(ctx.config);
+  const results = await latestMemories(
     {
-      agent_id: agent,
       namespace: ns,
       memory_type: type,
-      content,
-      source_type: "agent",
-      source_ref: sourceRef,
-      source_tier: tier ?? "llm_derived",
+      agent_id: agent,
+      limit,
+      preferStateMarkers,
     },
     ctx.store,
     {
-      dedup: governance.dedup,
-      antiOuroboros: governance.antiOuroboros,
+      callerNamespace: opts.callerNamespace ?? ctx.callerNamespace,
       namespaceIsolation: governance.namespaceIsolation,
-      writeGate: governance.writeGate,
-    },
-    { callerNamespace: opts.callerNamespace ?? ctx.callerNamespace }
+    }
   );
-  console.log(JSON.stringify(result, null, 2));
+  console.log(JSON.stringify({
+    mode: "latest",
+    namespace: ns,
+    count: results.length,
+    records: results,
+  }, null, 2));
 }
 
 async function cmdRead(args: string[], opts: ServerOptions): Promise<void> {
@@ -508,18 +607,50 @@ async function cmdMigrate(args: string[], opts: ServerOptions): Promise<void> {
 }
 
 async function cmdStatus(opts: ServerOptions): Promise<void> {
+  const config = await loadConfig(opts.configPath);
+  const storeType = opts.storeType ?? config.store ?? "sqlite";
+  const storePath = opts.storePath ?? config.store_path ?? null;
   const ctx = await createAmhContext(opts);
   const governance = resolveGovernance(ctx.config);
-  const recordCount = await ctx.store.count();
-  const ns = await ctx.store.namespaces();
+
+  let reachable: boolean | null = null;
+  let reachError: string | null = null;
+  if (ctx.store instanceof MemhallStore) {
+    const health = await ctx.store.healthCheck();
+    reachable = health.ok;
+    reachError = health.error ?? null;
+  }
+
+  let recordCount: number | null = null;
+  let namespaces: string[] = [];
+  let countNote: string | null = null;
+  try {
+    recordCount = await ctx.store.count();
+    namespaces = await ctx.store.namespaces();
+    if (storeType === "memhall") {
+      countNote = "memhall count may be approximate (search total or sample)";
+    }
+  } catch (err) {
+    reachError = err instanceof Error ? err.message : String(err);
+    if (storeType === "memhall") reachable = false;
+  }
+
   console.log(
     JSON.stringify(
       {
         version: AMH_VERSION,
+        store: {
+          type: storeType,
+          path: storePath,
+          reachable,
+          error: reachError,
+        },
         records: recordCount,
-        namespaces: ns,
+        records_note: countNote,
+        namespaces,
         caller_namespace: opts.callerNamespace ?? ctx.callerNamespace ?? null,
         governance,
+        handoff_rule: "use `amh latest --ns …` for session resume; `amh read --text` is search only",
       },
       null,
       2
@@ -588,6 +719,11 @@ if (command === "--help" || command === "-h" || rawArgs.includes("--help") || ra
   });
 } else if (command === "write") {
   cmdWrite(rest, opts).catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+} else if (command === "latest") {
+  cmdLatest(rest, opts).catch((err) => {
     console.error(err);
     process.exit(1);
   });

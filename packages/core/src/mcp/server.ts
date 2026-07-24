@@ -7,6 +7,7 @@ import { loadConfig, resolveGovernance, resolveIdentityConfig, type AmhConfig } 
 import { AMH_VERSION } from "../version.js";
 import { writeMemory } from "../operations/write.js";
 import { readMemory, queryMemories } from "../operations/read.js";
+import { latestMemories } from "../operations/latest.js";
 import { transferMemory } from "../operations/transfer.js";
 import { revokeMemory } from "../operations/revoke.js";
 import { expireMemory } from "../operations/expire.js";
@@ -217,14 +218,66 @@ export function createAmhServer(context: AmhServerContext) {
   );
 
   server.tool(
+    "amh_latest",
+    "Handoff-safe latest memories by created_at DESC for a namespace. Prefer this over amh_read with text search when resuming a session.",
+    {
+      namespace: z.string().describe("Namespace, e.g. project:acme"),
+      memory_type: z.enum(["fact", "preference", "constraint", "lesson", "risk"]).optional(),
+      agent_id: z.string().optional(),
+      limit: z.number().optional().default(5),
+      prefer_state_markers: z
+        .boolean()
+        .optional()
+        .default(true)
+        .describe("Prefer [state]/[wrap-up]/[handoff] entries when present"),
+    },
+    async (params) => {
+      try {
+        const results = await latestMemories(
+          {
+            namespace: params.namespace,
+            memory_type: params.memory_type,
+            agent_id: params.agent_id,
+            limit: params.limit,
+            preferStateMarkers: params.prefer_state_markers,
+          },
+          store,
+          readCtx
+        );
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({ mode: "latest", namespace: params.namespace, count: results.length, records: results }, null, 2),
+            },
+          ],
+        };
+      } catch (err) {
+        return {
+          content: [
+            {
+              type: "text" as const,
+              text: JSON.stringify({
+                error: err instanceof Error ? err.message : String(err),
+                error_type: err instanceof Error ? err.name : "Error",
+              }, null, 2),
+            },
+          ],
+          isError: true,
+        };
+      }
+    }
+  );
+
+  server.tool(
     "amh_read",
-    "Query memories by ID, namespace, type, or agent (expired records filtered by default)",
+    "Query memories by ID, namespace, type, or agent. Without text: chronological list. With text: relevance search (NOT for handoff — use amh_latest).",
     {
       memory_id: z.string().optional().describe("Specific memory ID to fetch"),
       namespace: z.string().optional().describe("Filter by namespace"),
       memory_type: z.enum(["fact", "preference", "constraint", "lesson", "risk"]).optional(),
       agent_id: z.string().optional().describe("Filter by agent"),
-      text: z.string().optional().describe("Text search in content"),
+      text: z.string().optional().describe("Text search in content (relevance — not for session resume)"),
       limit: z.number().optional().default(20),
       include_expired: z.boolean().optional().default(false),
     },
