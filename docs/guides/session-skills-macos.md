@@ -145,38 +145,50 @@ git status -sb 2>/dev/null | head -10
 
 ### Step 3：寫入 SQLite
 
+**寫入前 gate**：content 必須包含 1) 做了什麼 2) 改了哪些檔案 3) 下一步。缺任何一項 = `HANDOFF_INCOMPLETE`（內容不完整），**不得執行寫入**——先補齊再進本步驟。tags 至少 3 個關鍵字（方便未來搜尋）。
+
 \```bash
 python3 -c "
-import sqlite3, os
+import sqlite3, os, hashlib, sys
 db = os.path.expanduser('~/.claude/sessions.db')
+content = '''CONTENT_HERE'''
+expected = hashlib.sha256(content.encode('utf-8')).hexdigest()
+
 conn = sqlite3.connect(db)
-conn.execute(
+cur = conn.execute(
     'INSERT INTO sessions (slug, type, content, tags) VALUES (?, ?, ?, ?)',
-    (
-        'SLUG_HERE',
-        'checkpoint',
-        '''CONTENT_HERE''',
-        'TAG1, TAG2, TAG3'
-    )
+    ('SLUG_HERE', 'checkpoint', content, 'TAG1, TAG2, TAG3')
 )
+row_id = cur.lastrowid
 conn.commit()
 conn.close()
-print('checkpoint saved')
+
+# 回讀驗證：AI 說「存好了」不等於真的存好了。
+# 重開連線以 row id 精確回讀，證明 transaction 已提交、且新連線讀回的內容一致。
+conn = sqlite3.connect(db)
+row = conn.execute('SELECT content FROM sessions WHERE id = ?', (row_id,)).fetchone()
+conn.close()
+if row is None:
+    print(f'READBACK_FAILED: id={row_id} 寫入後讀不到')
+    sys.exit(1)
+if hashlib.sha256(row[0].encode('utf-8')).hexdigest() != expected:
+    print(f'READBACK_FAILED: id={row_id} 內容不一致')
+    sys.exit(1)
+print(f'checkpoint saved & verified (id={row_id})')
 "
 \```
 
 把 `SLUG_HERE`、`CONTENT_HERE`、`TAG1...` 替換為實際內容。
 
-content 至少包含：
-1. 做了什麼
-2. 改了哪些檔案
-3. 下一步
-
-tags 至少 3 個關鍵字（方便未來搜尋）。
+**回讀驗證規則**：
+- 輸出 `checkpoint saved & verified (id=N)` 且 exit code 為 0，才算存檔成功
+- 出現 `READBACK_FAILED` → **不得重跑整段腳本**（第一筆 INSERT 可能已成功，重跑會寫入重複紀錄）。用輸出的 id 只重試回讀（`SELECT content FROM sessions WHERE id = ?`）一次；仍失敗就把錯誤原樣告訴使用者
+- 任何非零退出、exception traceback、或沒看到成功標記——一律視為「存檔未驗證」，不得回報「已存進度」
+- 禁止用 search / 最新一筆代替 id 回讀（可能命中舊筆或相似筆）
 
 ### Step 4：簡短回報
 
-告訴使用者「已存進度」，一句話說存了什麼。不要長篇報告。
+告訴使用者「已存進度（已驗證）」，一句話說存了什麼。不要長篇報告。
 ```
 
 ---
