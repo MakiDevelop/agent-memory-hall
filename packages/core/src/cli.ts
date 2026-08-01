@@ -103,6 +103,7 @@ Usage:
   amh forget --id <memory_id> --by <agent> [--reason <text>]
   amh expire --id <memory_id> --by <agent> [--reason <text>]
   amh audit --id <memory_id>
+  amh audit --verify-chain    Recompute the audit hash chain; exit 1 if it breaks
   amh migrate                 Run DB migrations (decision→fact, content_hash rehash)
   amh status
   amh inspector [--port 5173]  Launch ACA Inspector Web UI
@@ -689,9 +690,27 @@ async function cmdPrincipal(args: string[], opts: ServerOptions): Promise<void> 
 }
 
 async function cmdAudit(args: string[], opts: ServerOptions): Promise<void> {
+  // --verify-chain recomputes the tamper-evidence chain (OL-013). It is
+  // store-wide rather than per-memory, so it does not take --id.
+  if (args.includes("--verify-chain")) {
+    const ctx = await createAmhContext(opts);
+    const store = ctx.store as { verifyAuditChain?: () => Promise<unknown> };
+    if (typeof store.verifyAuditChain !== "function") {
+      console.error(`Configured store (${ctx.config.store}) has no hash-chained audit log.`);
+      process.exit(1);
+    }
+    const report = (await store.verifyAuditChain()) as { breaks: number[] };
+    console.log(JSON.stringify(report, null, 2));
+    // Non-zero exit so this is usable as a check in a wrap-up or cron script.
+    if (report.breaks.length > 0) {
+      process.exit(1);
+    }
+    return;
+  }
+
   const id = flagValue(args, "--id");
   if (!id) {
-    console.error("Usage: amh audit --id <memory_id>");
+    console.error("Usage: amh audit --id <memory_id> | amh audit --verify-chain");
     process.exit(1);
   }
   const ctx = await createAmhContext(opts);

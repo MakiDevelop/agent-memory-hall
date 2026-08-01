@@ -86,6 +86,15 @@ export interface AuditEvent {
   timestamp: string;
   correlation_id?: string;
   details?: string;
+  /**
+   * Tamper-evidence chain (OL-013). `prev_hash` is the preceding event's `hash`,
+   * or "genesis" for the first. `hash` covers every field above plus `prev_hash`.
+   *
+   * Optional because events written before the chain existed carry neither;
+   * verifyAuditChain() reports those as `unchained` rather than as breaks.
+   */
+  prev_hash?: string;
+  hash?: string;
 }
 
 export interface AmhQuery {

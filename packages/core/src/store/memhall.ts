@@ -128,6 +128,43 @@ function defaultAuditPath(baseUrl: string): string {
   return join(homedir(), ".amh", `memhall-audit-${hash}.json`);
 }
 
+/** First link of the chain, mirroring ~/.claude/evidence/vault.jsonl. */
+const AUDIT_GENESIS = "genesis";
+
+/**
+ * Canonical serialisation an independent verifier must be able to reproduce.
+ * Key order is written out explicitly rather than relying on object literal
+ * ordering, so a future refactor cannot silently invalidate every stored hash.
+ * `hash` itself is excluded — it is the output, not an input.
+ */
+function auditChainBody(event: AuditEvent, prevHash: string): string {
+  return JSON.stringify({
+    event_id: event.event_id,
+    memory_id: event.memory_id,
+    operation: event.operation,
+    principal_id: event.principal_id,
+    timestamp: event.timestamp,
+    correlation_id: event.correlation_id ?? null,
+    details: event.details ?? null,
+    prev_hash: prevHash,
+  });
+}
+
+function auditHash(event: AuditEvent, prevHash: string): string {
+  return createHash("sha256").update(auditChainBody(event, prevHash)).digest("hex");
+}
+
+export interface AuditChainReport {
+  /** Total events in the log. */
+  total: number;
+  /** Events whose hash reproduces from their own content. */
+  verified: number;
+  /** Pre-OL-013 events carrying no hash — not evidence of tampering. */
+  unchained: number;
+  /** 0-based indices whose hash or prev_hash link does not reconcile. */
+  breaks: number[];
+}
+
 export class MemhallStore implements AmhStore {
   private baseUrl: string;
   private token: string;
@@ -143,13 +180,39 @@ export class MemhallStore implements AmhStore {
   }
 
   private async readAuditFile(): Promise<AuditEvent[]> {
+    // A missing log is the only benign failure. Everything else used to be
+    // swallowed into `[]`, which meant a single unreadable or truncated byte
+    // caused the very next appendAudit() to rewrite the file with one event —
+    // silently destroying the whole history. Tamper-evidence is worthless if
+    // the reader erases the evidence on its way past.
+    let raw: string;
     try {
-      const raw = await readFile(this.auditPath, "utf-8");
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? (parsed as AuditEvent[]) : [];
-    } catch {
-      return [];
+      raw = await readFile(this.auditPath, "utf-8");
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code === "ENOENT") {
+        return [];
+      }
+      throw err;
     }
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (err) {
+      throw new Error(
+        `Audit log at ${this.auditPath} is not valid JSON (${(err as Error).message}). ` +
+          `Refusing to read — appending now would overwrite the existing history. ` +
+          `Move the file aside once you have inspected it.`,
+      );
+    }
+
+    if (!Array.isArray(parsed)) {
+      throw new Error(
+        `Audit log at ${this.auditPath} is ${typeof parsed}, expected an array. Refusing to overwrite.`,
+      );
+    }
+
+    return parsed as AuditEvent[];
   }
 
   private async api<T>(
@@ -336,11 +399,56 @@ export class MemhallStore implements AmhStore {
   async appendAudit(event: AuditEvent): Promise<void> {
     await withFileLock(this.auditPath, async () => {
       const events = await this.readAuditFile();
-      events.push(event);
+
+      // Chain onto the last event. Events predating OL-013 have no hash, so the
+      // chain restarts from genesis at the first event written after upgrade —
+      // it cannot retroactively attest to history it never covered.
+      const last = events[events.length - 1];
+      const prevHash = last?.hash ?? AUDIT_GENESIS;
+
+      events.push({ ...event, prev_hash: prevHash, hash: auditHash(event, prevHash) });
+
       const { writeFile } = await import("node:fs/promises");
       await mkdir(dirname(this.auditPath), { recursive: true });
       await writeFile(this.auditPath, JSON.stringify(events, null, 2), "utf-8");
     });
+  }
+
+  /**
+   * Recompute the chain and report where it fails to reconcile (D6 AC6).
+   * Read-only: it never rewrites the log, so it is safe to run against a
+   * suspect file.
+   */
+  async verifyAuditChain(): Promise<AuditChainReport> {
+    const events = await this.readAuditFile();
+    const report: AuditChainReport = { total: events.length, verified: 0, unchained: 0, breaks: [] };
+
+    let expectedPrev = AUDIT_GENESIS;
+    for (const [index, event] of events.entries()) {
+      if (!event.hash) {
+        report.unchained += 1;
+        // A gap resets the expectation; the next chained event legitimately
+        // starts from genesis rather than from an unhashed predecessor.
+        expectedPrev = AUDIT_GENESIS;
+        continue;
+      }
+
+      const prevHash = event.prev_hash ?? AUDIT_GENESIS;
+      const recomputed = auditHash(event, prevHash);
+      if (prevHash !== expectedPrev || recomputed !== event.hash) {
+        report.breaks.push(index);
+      } else {
+        report.verified += 1;
+      }
+
+      // Advance on what this event's content actually hashes to, not on the
+      // value stored alongside it. Chaining on the stored hash would let an
+      // edited body fail in isolation while every later link still reconciled —
+      // tampering must cascade, or the chain only protects one record at a time.
+      expectedPrev = recomputed;
+    }
+
+    return report;
   }
 
   async getAudit(memoryId: string): Promise<AuditEvent[]> {
