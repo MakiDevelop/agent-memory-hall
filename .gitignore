@@ -14,3 +14,8 @@ dist/
 *.tsbuildinfo
 GEMINI.md
 .playwright-mcp/
+
+# Runtime artifacts — evidence-vault.sh 在 git repo 內會把 vault 寫到 repo 根目錄。
+# vault.jsonl 是每一次工具呼叫的全紀錄，會捕捉到經過指令的憑證。本 repo 為 public，
+# 不得納管。（同規則見 mk-agentos:15、claude-team-skill-lab:25）
+evidence/
