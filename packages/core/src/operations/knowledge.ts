@@ -15,13 +15,17 @@ export interface KnowledgeWriteInput {
   /** if set and supersedes empty, find latest active fact containing this text in ns */
   replaces_text?: string;
   source_ref?: string;
-  /** default human_confirmed when superseding (anti-ouroboros) */
+  /** defaults to llm_derived; human_confirmed must be requested explicitly */
   source_tier?: AmhRecord["source"]["tier"];
 }
 
 /**
  * Minimal Knowledge handler: durable fact/constraint with optional supersede.
- * Supersede defaults to human_confirmed tier so llm cannot ouroboros llm.
+ *
+ * Tier is never inferred from the shape of the write. Superseding used to force
+ * human_confirmed so the write would slip past the anti-Ouroboros block, which
+ * stamped "a human confirmed this" onto records no human had seen. Council
+ * 2026-08-01 removed that inference and relaxed the block instead.
  */
 export async function writeKnowledge(
   input: KnowledgeWriteInput,
@@ -47,9 +51,7 @@ export async function writeKnowledge(
     if (match) supersedes = match.memory_id;
   }
 
-  const tier =
-    input.source_tier ??
-    (supersedes ? "human_confirmed" : "llm_derived");
+  const tier = input.source_tier ?? "llm_derived";
 
   const body = input.content.trim().startsWith("[knowledge")
     ? input.content
