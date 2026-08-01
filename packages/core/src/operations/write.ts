@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { AmhRecordSchema, type AmhRecord, type AuditEvent } from "../schema/types.js";
 import type { AmhStore } from "../store/interface.js";
 import { runWriteGate, type WriteGateConfig, type WriteGateContext } from "../governance/write-gate.js";
+import { LLM_TO_LLM_SUPERSEDE } from "../governance/source-tier.js";
 import { readMemory } from "./read.js";
 import { appendProvenanceTransition } from "./provenance.js";
 
@@ -110,13 +111,18 @@ export async function writeMemory(
     if (store.linkSupersedes) {
       await store.linkSupersedes(record.memory_id, input.supersedes);
     }
+    // Governance markers ride along in the audit trail so a relaxed rule
+    // (e.g. llm_to_llm_supersede) stays greppable after the fact.
+    const markers = governanceApplied.filter((g) => g === LLM_TO_LLM_SUPERSEDE);
     const supersedeAudit: AuditEvent = {
       event_id: randomUUID(),
       memory_id: input.supersedes,
       operation: "supersede",
       principal_id: input.agent_id,
       timestamp: now,
-      details: `Superseded by ${record.memory_id}`,
+      details:
+        `Superseded by ${record.memory_id}` +
+        (markers.length ? ` | governance:${markers.join(",")}` : ""),
     };
     await store.appendAudit(supersedeAudit);
   }

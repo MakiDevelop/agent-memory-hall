@@ -4,7 +4,7 @@ import { unlinkSync, existsSync } from "node:fs";
 import { writeMemory } from "./write.js";
 import { readMemory } from "./read.js";
 import { SqliteStore } from "../store/sqlite.js";
-import { AntiOuroborosError } from "../governance/source-tier.js";
+import { LLM_TO_LLM_SUPERSEDE } from "../governance/source-tier.js";
 
 describe("supersede authorization", () => {
   const dbPath = "/tmp/amh-supersede-test.db";
@@ -121,7 +121,7 @@ describe("supersede authorization", () => {
     unlinkSync(dbPath);
   });
 
-  it("blocks llm_derived supersede of expired llm_derived parent", async () => {
+  it("marks but allows llm_derived supersede of expired llm_derived parent", async () => {
     if (existsSync(dbPath)) unlinkSync(dbPath);
     const store = new SqliteStore(dbPath);
 
@@ -142,25 +142,30 @@ describe("supersede authorization", () => {
       { callerNamespace: "project:acme" }
     );
 
-    await assert.rejects(
-      () =>
-        writeMemory(
-          {
-            agent_id: "agent-b",
-            namespace: "project:acme",
-            memory_type: "fact",
-            content: "replacement",
-            source_type: "agent",
-            source_ref: "",
-            source_tier: "llm_derived",
-            supersedes: expired.memory_id,
+    const replacement = await writeMemory(
+      {
+        agent_id: "agent-b",
+        namespace: "project:acme",
+        memory_type: "fact",
+        content: "replacement",
+        source_type: "agent",
+        source_ref: "",
+        source_tier: "llm_derived",
+        supersedes: expired.memory_id,
 
-          },
-          store,
-          { namespaceIsolation: true, dedup: false },
-          { callerNamespace: "project:acme" }
-        ),
-      AntiOuroborosError
+      },
+      store,
+      { namespaceIsolation: true, dedup: false },
+      { callerNamespace: "project:acme" }
+    );
+
+    assert.ok(replacement.governance_applied.includes(LLM_TO_LLM_SUPERSEDE));
+
+    const audit = await store.getAudit(expired.memory_id);
+    const supersedeEvent = audit.find((e) => e.operation === "supersede");
+    assert.ok(
+      supersedeEvent?.details?.includes(`governance:${LLM_TO_LLM_SUPERSEDE}`),
+      "relaxed rule must be recorded in the supersede audit event"
     );
 
     unlinkSync(dbPath);
