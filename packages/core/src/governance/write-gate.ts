@@ -121,11 +121,11 @@ export async function runWriteGate(
   }
 
   if (cfg.antiOuroboros) {
-    await checkSourceTier(record, store, {
+    const markers = await checkSourceTier(record, store, {
       callerNamespace: context.callerNamespace,
       namespaceIsolation: cfg.namespaceIsolation,
     });
-    governanceApplied.push("anti_ouroboros");
+    governanceApplied.push("anti_ouroboros", ...markers);
   }
 
   record.content_hash = computeContentHash(record.content.format, record.content.value);
