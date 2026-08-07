@@ -201,6 +201,7 @@ AMH doesn't just store memories — it tracks **who wrote it, where it came from
 - [macOS Setup Guide](https://chiba.tw/memory-hall/guides/session-skills-macos.html)
 - [Windows Setup Guide](https://chiba.tw/memory-hall/guides/session-skills-windows.html)
 - [Full Protocol Spec](docs/Agent_Civilization_Architecture.md)
+- [Baton v2 design history](docs/baton-v2-design-history.md) — retained decisions from the retired standalone prototype
 
 ## License
 
