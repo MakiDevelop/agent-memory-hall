@@ -14,6 +14,7 @@ import { revokeMemory } from "./operations/revoke.js";
 import { expireMemory } from "./operations/expire.js";
 import { transferMemory } from "./operations/transfer.js";
 import { tierUpgrade } from "./operations/tier-upgrade.js";
+import { formatWriteContent } from "./write-format.js";
 import { importUmpFile, exportUmpFile } from "./import/ump.js";
 import { importMem0File } from "./import/mem0.js";
 import { resolveGovernance, resolveIdentityConfig } from "./config.js";
@@ -124,6 +125,8 @@ Write options:
   --source-ref <ref>   Source reference
   --kind <state|memory|pointer>   Content kind marker (R1 quality)
   --status-label <open|blocked|done>  Workflow status for kind=state
+  --next <text>        Next action for kind=state (default: first line of content)
+  --blocker <text>     Blocker for kind=state (default: 無)
   --artifact <path>    Absolute path for kind=pointer or state
   --supersedes <id>    Mark parent memory superseded
   --ttl-days <n>       Set valid_until = now + n days
@@ -178,32 +181,7 @@ function requireIdentityStore(ctx: AmhServerContext) {
   return ctx.identityStore;
 }
 
-function formatWriteContent(
-  raw: string,
-  kind: string | undefined,
-  statusLabel: string | undefined,
-  artifact: string | undefined
-): string {
-  if (!kind && !statusLabel && !artifact) return raw;
-  const k = kind ?? "memory";
-  const date = new Date().toISOString().slice(0, 10);
-  if (k === "state") {
-    return [
-      `[state auto ${date}] ${raw.split("\n")[0] ?? raw}`,
-      `status: ${statusLabel ?? "open"}`,
-      `next: ${raw}`,
-      `blocker: 無`,
-      `artifact: ${artifact ?? "⏭️ none"}`,
-    ].join("\n");
-  }
-  if (k === "pointer") {
-    if (!artifact) {
-      throw new Error("--kind pointer requires --artifact <absolute-path>");
-    }
-    return `[pointer auto ${date}] ${raw}\nartifact: ${artifact}`;
-  }
-  return raw;
-}
+// formatWriteContent 已抽到 ./write-format.ts（可測試；cli.ts 有 top-level dispatch）
 
 function resolveValidUntil(args: string[]): string | undefined {
   const explicit = flagValue(args, "--valid-until");
@@ -228,6 +206,8 @@ async function cmdWrite(args: string[], opts: ServerOptions): Promise<void> {
   const kind = flagValue(args, "--kind");
   const statusLabel = flagValue(args, "--status-label");
   const artifact = flagValue(args, "--artifact");
+  const nextHint = flagValue(args, "--next");
+  const blockerHint = flagValue(args, "--blocker");
   const supersedes = flagValue(args, "--supersedes");
   const rawContent = positionalArgs(args).join(" ").trim();
 
@@ -239,7 +219,14 @@ async function cmdWrite(args: string[], opts: ServerOptions): Promise<void> {
   let content: string;
   let validUntil: string | undefined;
   try {
-    content = formatWriteContent(rawContent, kind, statusLabel, artifact);
+    content = formatWriteContent(
+      rawContent,
+      kind,
+      statusLabel,
+      artifact,
+      nextHint,
+      blockerHint
+    );
     validUntil = resolveValidUntil(args);
   } catch (err) {
     console.error(err instanceof Error ? err.message : err);

@@ -2,6 +2,7 @@ import type { AmhQuery, AmhRecord } from "../schema/types.js";
 import type { AmhStore } from "../store/interface.js";
 import { queryMemories, type ReadContext } from "./read.js";
 import { MemhallStore } from "../store/memhall.js";
+import { hasStateTag } from "../state-markers.js";
 
 export interface LatestOptions {
   namespace: string;
@@ -60,12 +61,8 @@ export async function latestMemories(
 export function isStateLike(content: string): boolean {
   const head = content.trimStart().slice(0, 80).toLowerCase();
   return (
-    head.startsWith("[state ") ||
-    head.startsWith("[wrap-up ") ||
-    head.startsWith("[wrap-up|") ||
-    head.startsWith("[handoff ") ||
-    head.startsWith("[save ") ||
-    head.startsWith("[checkpoint ") ||
+    // 標頭清單來自 ../state-markers.js，與 write-format 的 formatter 共用同一份
+    hasStateTag(content) ||
     head.includes("status: open") ||
     head.includes("status:blocked") ||
     head.includes("status: blocked")
