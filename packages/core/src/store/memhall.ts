@@ -85,6 +85,11 @@ function entryToAmh(entry: MemhallEntry): AmhRecord {
     created_at: entry.created_at,
     created_by: entry.created_by_principal,
     content_hash: entry.content_hash,
+    // valid_until 由 amhMetadataFromRecord 寫進 metadata，但過去沒有還原回來，
+    // 於是 AmhRecord.valid_until 恆為 undefined，isExpired() 的「時間到期」語義
+    // 在 memhall backend 上從未生效（只有 status === "expired" 會被擋）。
+    // （Codex review 2026-08-10 發現 #1）
+    valid_until: typeof meta.valid_until === "string" ? meta.valid_until : undefined,
     trust_proof: trustProof as AmhRecord["trust_proof"],
     provenance_chain: provenanceChain as AmhRecord["provenance_chain"],
   };

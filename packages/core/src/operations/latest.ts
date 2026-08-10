@@ -1,7 +1,6 @@
 import type { AmhQuery, AmhRecord } from "../schema/types.js";
 import type { AmhStore } from "../store/interface.js";
 import { queryMemories, type ReadContext } from "./read.js";
-import { MemhallStore } from "../store/memhall.js";
 import { hasStateTag } from "../state-markers.js";
 
 export interface LatestOptions {
@@ -26,27 +25,26 @@ export async function latestMemories(
   const limit = options.limit ?? 5;
   const prefer = options.preferStateMarkers !== false;
 
-  let records: AmhRecord[];
-  if (store instanceof MemhallStore) {
-    records = await store.listLatest({
-      namespace: options.namespace,
-      memory_type: options.memory_type,
-      agent_id: options.agent_id,
-      limit: Math.max(limit, prefer ? 20 : limit),
-    });
-    // Namespace isolation for memhall path
-    if (context.namespaceIsolation && context.callerNamespace) {
-      records = records.filter((r) => r.namespace === context.callerNamespace);
-    }
-  } else {
-    const filter: AmhQuery = {
-      namespace: options.namespace,
-      memory_type: options.memory_type,
-      agent_id: options.agent_id,
-      limit: Math.max(limit, prefer ? 20 : limit),
-    };
-    records = await queryMemories(filter, store, context);
-  }
+  // 所有 store 一律走 queryMemories，不再為 memhall 開特例分支。
+  //
+  // 舊版對 MemhallStore 直接呼叫 store.listLatest()，因此繞過了 queryMemories 的
+  // 三層治理：requireTrustedCaller()、enforceNamespaceIsolation()、
+  // applyLifecycleFilter()。實測後果：
+  //   - superseded / revoked 的記錄仍被 boot 當成現況，把已作廢的 blocker 與
+  //     artifact 帶回接班視窗
+  //   - namespaceIsolation 開啟但沒有 caller namespace 時不會 fail-closed
+  //   - 跨 namespace 是靜默濾除而非拋 NamespaceViolationError
+  //
+  // MemhallStore.query() 在沒有 text 時本來就走 chronological listLatest()，
+  // 不會誤走 hybrid search，所以 latest / search 的分流設計不受影響。
+  // （Codex review 2026-08-10 發現 #2）
+  const filter: AmhQuery = {
+    namespace: options.namespace,
+    memory_type: options.memory_type,
+    agent_id: options.agent_id,
+    limit: Math.max(limit, prefer ? 20 : limit),
+  };
+  let records = await queryMemories(filter, store, context);
 
   if (prefer) {
     const stateLike = records.filter((r) => isStateLike(r.content.value));
