@@ -1,5 +1,43 @@
 # Changelog
 
+## 1.5.1 — 2026-08-10
+
+### Fixed
+- **`latestMemories` 不再為 memhall backend 開特例分支**，一律走 `queryMemories()`。
+
+  舊版對 `MemhallStore` 直接呼叫 `store.listLatest()`，因此繞過 `queryMemories()` 的
+  三層治理，而 sqlite / json / postgres 分支一直是完整的：
+
+  | 繞過的檢查 | 實際後果 |
+  |---|---|
+  | `applyLifecycleFilter()` | `superseded` / `revoked` 的記錄仍被 `boot` 當成現況，把已作廢的 `blocker:` 與 `artifact:` 帶回接班視窗 |
+  | `requireTrustedCaller()` | `namespaceIsolation` 開啟但無 caller namespace 時**不會 fail-closed** |
+  | `enforceNamespaceIsolation()` | 跨 namespace 存取是**靜默濾除**而非拋 `NamespaceViolationError` |
+
+  由於 AMH 的核心用途就是接班，第一項直接命中主要路徑。
+
+  `MemhallStore.query()` 在沒有 `text` 時本來就走 chronological `listLatest()`，
+  因此 latest / search 的分流設計不受影響。
+
+- **`entryToAmh()` 補上 `valid_until` 還原。** 寫入端（`amhMetadataFromRecord`）一直有
+  把它存進 metadata，但讀取端沒有放回 `AmhRecord.valid_until`，導致
+  `isExpired()` 的**時間到期**語義在 memhall backend 上從未生效 ——
+  過去只有 `amh_status === "expired"` 會被擋。
+
+### Notes
+- 既有已寫入的 `superseded` 記錄**不需要 migration**：`amh_status` 一直被正確保存，
+  升級客戶端後即會被隱藏。**但長駐的 MCP process 需要重啟才會載入新版。**
+- **已知限制（BL-003）**：lifecycle 過濾在取回後於記憶體內進行，而 `listLatest` 的
+  limit 只放大到 `max(limit, 20)`。若視窗內記錄多數 inactive，回傳筆數**不保證補滿
+  `limit`**；極端情況（最近 20 筆皆 inactive）會回傳空陣列，使 `boot` 誤判為
+  greenfield。正解是使用 memory-hall 的 `next_cursor` 分頁，非本版範圍。
+
+### Tests
+150 pass / 0 fail（1.5.0 為 142）。新增涵蓋：sqlite supersede、memhall 依 `amh_status`
+過濾、`filterInactive: false` 反向案例、missing caller fail-closed、cross-namespace 拋錯、
+`valid_until` 時間到期（過去 / 未來 / 無值三種）、20 筆視窗限制的現況固定、
+以及 `bootSession` 層級斷言 superseded 的 blocker / artifact / next 皆不進輸出。
+
 ## 1.5.0 — 2026-08-10
 
 ### Fixed
