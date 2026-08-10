@@ -1,5 +1,40 @@
 # Changelog
 
+## 1.5.0 — 2026-08-10
+
+### Fixed
+- `--kind state` 不再把整段 content 複製進 `next:`。全庫體檢 419 筆發現 272 筆
+  （有 `next:` 者的 98%）是整段重複，佔全庫 27% 字元且對 `amh boot` 零貢獻
+  （boot 只讀 `next:` 第一行）。完整內文改為在欄位區之後保留一份。
+- `--kind state` 不再於呼叫端已自帶 `[state …]` / `[wrap-up …]` 標頭時疊第二層
+  `[state auto …]` prefix（體檢：216 / 419 筆，52%）。
+- `blocker:` 不再寫死「無」。1.4.0 沒有正式 CLI 路徑可填 blocker，標準生成的欄位
+  恆為「無」而被 `boot` 的過濾器濾掉；僅當呼叫端把 `blocker:` 夾在 multiline raw
+  裡時才會非正式地被 `boot` 掃到。（Codex review 2026-08-10 Premise Challenge：
+  早先「`open_blockers` 結構性永遠為空」的說法過強，已修正為此。）
+- `--kind state` 的標頭偵測改為共用 `state-markers.ts`。先前版本匹配任意 `[...]`，
+  但 `latest` 的 `isStateLike` 只認得固定幾種標頭，導致 `[memory …]` 這類內容
+  既不補 `[state auto]`、也不被 `latest` 視為 state 而遭 preference filter 排除。
+- `--next` / `--blocker` / `--status-label` / `--artifact` 現在拒絕含換行的值。
+  先前只做 `trim()`，`--next "a\nblocker: x"` 會產生第二個 `blocker:` 行並被
+  `boot` 當成真實 blocker。改為 fail-loud，不靜默替換。
+- `kind=state` 的 body 不再被 `trim()` 吃掉第一層縮排（會破壞 markdown code block
+  與 YAML）；改為僅用於判空，並正規化 CRLF。
+
+### Added
+- `amh write --next <text>` — 明確指定 `kind=state` 的下一步。
+  預設取 content 第一行去標頭；標頭無正文時退到 body 第一個非空行；
+  兩者皆空則報錯。此預設是**相容性 fallback**，不保證第一行語意上真的是下一步，
+  建議呼叫端明確傳 `--next`。
+- `amh write --blocker <text>` — 明確指定 `kind=state` 的阻塞（預設「無」）
+- `src/state-markers.ts` — state 標頭清單的單一事實來源，`latest.isStateLike`
+  與 write formatter 共用，避免兩套判斷漂移。
+
+### Changed
+- `formatWriteContent` 由 `cli.ts` 抽出至 `src/write-format.ts` 並 export，
+  補 25 條單元測試（`cli.ts` 有 top-level dispatch，無法直接 import 測試）。
+- `pointer` / `memory` 分支輸出與 1.4.0 相同（皆有測試鎖定）。
+
 ## 1.4.0 — 2026-07-24
 
 ### Added
