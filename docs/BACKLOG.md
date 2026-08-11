@@ -61,6 +61,42 @@ Repo 本地的技術債清單。跨專案、有被遺忘風險的「進行中計
 
 ---
 
+## BL-004 — 記憶投毒防禦：已有 provenance，缺 belief drift detection
+
+- **狀態**：open；2026-08-10 登記。**前置是先讀原文**（見下方「證據品質」）。
+- **背景**：2026 竄起一類針對 agent 長期記憶的攻擊（memory poisoning / context
+  poisoning）。與 prompt injection 不同的是**時間解耦**——今天植入的內容，
+  數週後才被語意觸發。攻擊目標是 agent 的「信念」而非單次輸出。
+  既有防禦（工具契約、斷路器、I/O 審核）偵測的是惡意**動作**，不是被污染的**信念**。
+- **AMH 現況對照**（依該領域提出的三項所需原語）：
+
+  | 所需原語 | AMH 現況 |
+  |---|---|
+  | context provenance tracking | ✅ `provenance_chain` + supersede 鏈 + `audit --verify-chain` |
+  | memory contracts（agent 可以相信什麼） | ✅ `tier`（raw_source / llm_derived / human_confirmed）+ `antiOuroboros` |
+  | **belief drift detection** | ❌ **無** |
+
+- **既有的真實破口**：2026-08-10 體檢發現 Grok 寫入的 39 筆中有 **20 筆自行標記
+  `human_confirmed`**（Grok 的 wrap-up skill 當時缺少禁令，已補）。在治理視角這是
+  不一致；**在記憶投毒視角，這是 memory contract 被 agent 自行提升信任層**——
+  正是該機制要擋的東西。那 20 筆**尚未處理**，待 Maki 裁決。
+- **可能的方向**（未評估，勿直接實作）：
+  - 寫入時偵測與同 namespace 既有 active 記憶的語意衝突，標記而非拒絕
+  - `tier` 提升需留 audit（`tier-upgrade` 已有，但沒有「異常提升」的偵測）
+  - 定期以 `audit --verify-chain` 之外的方式檢查信念漂移
+- **⚠️ 證據品質（重要）**：本條目**全部來自網路搜尋摘要，未讀任何原文**。
+  部分來源是 Medium 個人文章而非同行評審。實作前必須先讀：
+  - `arXiv:2606.04329` From Untrusted Input to Trusted Memory（系統性研究）
+  - `arXiv:2605.23723` MemAudit（事後稽核、因果歸因）
+  - `arXiv:2606.30566` Forensic Trajectory Signatures
+  - `arXiv:2605.28201` Plant, Persist, Trigger（sleeper attack）
+- **不要做的事**：在讀完原文前不要因為「聽起來很嚴重」就加防禦機制。
+  AMH 現有的 tier / provenance / anti-Ouroboros 可能已覆蓋多數情境，
+  盲目加東西會增加複雜度而未必增加安全性。
+- **相關**：ICLR 2026 MemAgents workshop；`Awesome-Memory-for-Agents`（清華 C3I）
+
+---
+
 ## Closed
 
 （暫無）
