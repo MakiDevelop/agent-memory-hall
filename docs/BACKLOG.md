@@ -76,10 +76,20 @@ Repo 本地的技術債清單。跨專案、有被遺忘風險的「進行中計
   | memory contracts（agent 可以相信什麼） | ✅ `tier`（raw_source / llm_derived / human_confirmed）+ `antiOuroboros` |
   | **belief drift detection** | ❌ **無** |
 
-- **既有的真實破口**：2026-08-10 體檢發現 Grok 寫入的 39 筆中有 **20 筆自行標記
-  `human_confirmed`**（Grok 的 wrap-up skill 當時缺少禁令，已補）。在治理視角這是
-  不一致；**在記憶投毒視角，這是 memory contract 被 agent 自行提升信任層**——
-  正是該機制要擋的東西。那 20 筆**尚未處理**，待 Maki 裁決。
+- **相關但需區分的既有問題**：2026-08-10 體檢發現 Grok 寫入的 39 筆中有 **20 筆自行標記
+  `human_confirmed`**（Grok 的 wrap-up skill 當時缺少禁令，已補）。那 20 筆**尚未處理**，
+  待 Maki 裁決。
+
+  ⚠️ **2026-08-11 更正措辭**（讀完 `arXiv:2606.04329` 原文後）：先前把這件事寫成
+  「memory contract 破口」是**不精確的類比**。那是 **integrity failure，不是攻擊**——
+  沒有對手、沒有 adversarial payload，起因是 skill 缺少禁令導致 agent 自我提升信任層。
+  它與記憶投毒**共用同一個防禦面**（`tier` 的可信度），但**威脅模型不同**，不應混為一談。
+
+- **2026-08-11 已處理的一項**：`source.ref`（write-path provenance）過去
+  **385 筆可見記錄中只有 70 筆（18%）有值，且沒有任何 skill 在傳這個參數**。
+  已更新四個 skill 模板（Claude / Grok 的 wrap-up 與 save）強制填寫，並定義格式慣例
+  （`artifact:` / `<repo>@<sha>` / `Maki <date> <裁示>` / **`external:`** / `unsourced`）。
+  這對應論文的防禦方向二。**未改 AMH 任何 code**。
 - **可能的方向**（未評估，勿直接實作）：
   - 寫入時偵測與同 namespace 既有 active 記憶的語意衝突，標記而非拒絕
   - `tier` 提升需留 audit（`tier-upgrade` 已有，但沒有「異常提升」的偵測）
@@ -94,6 +104,42 @@ Repo 本地的技術債清單。跨專案、有被遺忘風險的「進行中計
   AMH 現有的 tier / provenance / anti-Ouroboros 可能已覆蓋多數情境，
   盲目加東西會增加複雜度而未必增加安全性。
 - **相關**：ICLR 2026 MemAgents workshop；`Awesome-Memory-for-Agents`（清華 C3I）
+
+---
+
+## BL-005 — 觀察 `source_ref` 覆蓋率，再決定要不要加寫入警告
+
+- **狀態**：**待觀察**（不是待實作）。2026-08-11 開立。
+- **背景**：2026-08-11 更新四個 skill 模板（Claude / Grok 的 wrap-up 與 save）要求
+  必填 `--source-ref`。但實測確認 **AMH 對此零強制力**——不傳、傳空字串、
+  傳「隨便打的」三種情況全部靜默成功。所以目前只是寫在 markdown 的君子協定。
+- **基準線（改 skill 當下）**：385 筆可見記錄中 70 筆有 `source.ref` = **18%**。
+- **要觀察什麼**：過一段時間（建議 ≥2 週或 ≥20 筆新寫入）重跑覆蓋率：
+
+  ```
+  逐 namespace: amh --caller-ns <ns> latest --ns <ns> --limit 1000
+  統計 source.ref 非空的比例，並依 agent_id 分組
+  ```
+
+- **決策規則**：
+  - 覆蓋率顯著上升（例如 >80%）→ **光改 skill 就夠，不需要加警告**，本條關閉
+  - 覆蓋率沒動或很低 → 那時才有證據支持加機制，且會知道**是哪個 agent 沒照做**
+- **若屆時決定要加**（實作方案已探勘過，不必重查）：
+  `packages/core/src/governance/write-gate.ts` 已有現成 soft-warn pattern
+  （`applied.push("state_length_warn:...")`，line 90-91），照抄即可：
+
+  ```ts
+  if (kind === "state" && !record.source.ref?.trim()) {
+    applied.push("source_ref_missing");
+  }
+  ```
+
+  非破壞性（`governance_applied` 是既有陣列），CLI 與 MCP 兩條路徑自動都看得到。
+- **⚠️ 已知限制**：`governance_applied` **只在寫入當下回傳、不落地**，
+  所以警告無法用於事後稽核。事後要查「哪些記錄沒填來源」直接看 `source.ref` 即可，
+  不需要警告機制。警告唯一的價值是**讓 agent 在寫入當下看到並自行補上**。
+- **為什麼先觀察不先做**：現在還沒有任何一筆記憶是照新 skill 規則寫的，
+  無從判斷「光改 skill」夠不夠。先量再修（本 session 反覆學到的教訓）。
 
 ---
 
