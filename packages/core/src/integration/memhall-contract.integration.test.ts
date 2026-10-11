@@ -1,6 +1,9 @@
 import { describe, it, before } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import { mkdtemp, readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { MemhallStore } from "../store/memhall.js";
 import { writeMemory } from "../operations/write.js";
 import { readMemory } from "../operations/read.js";
@@ -26,11 +29,14 @@ async function waitForHealth(url: string, attempts = 30): Promise<void> {
 
 describeContract("memhall live contract", () => {
   let store: MemhallStore;
+  let auditPath: string;
   const ns = `project:amh-contract-${randomUUID().slice(0, 8)}`;
 
   before(async () => {
     await waitForHealth(baseUrl!);
-    store = new MemhallStore(baseUrl!, token);
+    const auditDir = await mkdtemp(join(tmpdir(), "amh-memhall-contract-"));
+    auditPath = join(auditDir, "audit.json");
+    store = new MemhallStore(baseUrl!, token, auditPath);
   });
 
   it("write adopts ULID and findByContentHash resolves", async () => {
@@ -53,6 +59,22 @@ describeContract("memhall live contract", () => {
     const hash = computeContentHash("text/plain", content);
     const dup = await store.findByContentHash(ns, hash);
     assert.equal(dup?.memory_id, result.memory_id);
+
+    const audit = await store.getAudit(result.memory_id);
+    assert.equal(audit.length, 1);
+    assert.equal(audit[0].operation, "write");
+    assert.equal(audit[0].principal_id, "grok");
+
+    const persistedAudit = JSON.parse(await readFile(auditPath, "utf-8")) as Array<{
+      memory_id?: string;
+      operation?: string;
+    }>;
+    assert.ok(
+      persistedAudit.some(
+        (event) => event.memory_id === result.memory_id && event.operation === "write"
+      ),
+      `write audit record was not persisted at ${auditPath}`
+    );
   });
 
   it("revoke persists via PATCH", async () => {
